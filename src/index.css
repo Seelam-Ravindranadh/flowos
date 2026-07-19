@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f6f8fc;
+  color: #0b0f1c;
+}
+
+.dark body {
+  background-color: #070a14;
+  color: #e6ebf5;
+}
+
+::selection {
+  background: rgba(30, 120, 255, 0.25);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); background-clip: padding-box; }
+
+@layer components {
+  .glass {
+    @apply bg-white/80 dark:bg-ink-850/70 backdrop-blur-xl border border-slate-200/70 dark:border-white/5;
+  }
+  .glass-strong {
+    @apply bg-white/95 dark:bg-ink-850/95 backdrop-blur-2xl border border-slate-200 dark:border-white/10;
+  }
+  .card-surface {
+    @apply bg-white dark:bg-ink-850/60 border border-slate-200/80 dark:border-white/5 rounded-2xl shadow-card;
+  }
+  .hairline {
+    @apply border-slate-200/80 dark:border-white/5;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-600 via-brand-500 to-accent-500 bg-clip-text text-transparent;
+  }
+  .premium-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(15,23,42,0.05) 1px, transparent 0);
+    background-size: 22px 22px;
+  }
+  .dark .premium-grid {
+    background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.06) 1px, transparent 0);
+  }
+  .shimmer {
+    background: linear-gradient(90deg, rgba(148,163,184,0.08) 25%, rgba(148,163,184,0.18) 50%, rgba(148,163,184,0.08) 75%);
+    background-size: 700px 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+}
