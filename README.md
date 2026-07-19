@@ -546,10 +546,24 @@ This project is released under the MIT License.
 
 ---
 
+## Project Status
+
+🚧 Active Development
+
+FlowOS is currently under active development. Features, APIs, and architecture may evolve as the platform progresses toward a production-ready release.
+
+---
+
 ## Author
 
 **Seelam Ravindranadh**
 
 Java Full Stack Developer | Spring Boot | Microservices | React | PostgreSQL | AWS
 
-Building **FlowOS** to simplify SME financing through AI, automation, and modern financial technology.
+Building **FlowOS** — An AI-Powered SME Financial Operating System that simplifies working capital financing through intelligent automation, secure digital infrastructure, and embedded financial services.
+
+---
+
+## Copyright
+
+© 2026 Seelam Ravindranadh. All rights reserved.
