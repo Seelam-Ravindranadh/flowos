@@ -1,4 +1,4 @@
-import { useState } from 'react';
+/* import { useState } from 'react';
 import { AppLayout } from './components/AppLayout';
 import { Landing } from './components/Landing';
 import type { NavKey } from './lib/nav';
@@ -76,6 +76,14 @@ function PageRouter({ view, onNavigate }: { view: NavKey; onNavigate: (k: string
     case 'integrations': return <Integrations />;
     default: return <Dashboard onNavigate={onNavigate} />;
   }
+}
+
+export default App;  */
+
+import AppRoutes from "./routes/AppRoutes";
+
+function App() {
+  return <AppRoutes />;
 }
 
 export default App;
