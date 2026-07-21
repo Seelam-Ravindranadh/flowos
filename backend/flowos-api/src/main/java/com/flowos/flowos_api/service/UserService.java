@@ -20,6 +20,11 @@ public class UserService {
     }
 
     public User save(User user) {
+
+        if (repository.existsByEmail(user.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+
         return repository.save(user);
     }
 
