@@ -6,10 +6,10 @@ import lombok.Data;
 @Data
 public class UpdateProfileRequest {
 
-    @NotBlank
+    @NotBlank(message="First name is required")
     private String firstName;
 
-    @NotBlank
+    @NotBlank(message="Last name is required")
     private String lastName;
 
 }

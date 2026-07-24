@@ -1,5 +1,6 @@
 package com.flowos.flowos_api.security;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -63,15 +65,20 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
-                        .requestMatchers(
-                                "/api/auth/**",
-                                "/error",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
-                        ).permitAll()
+                                .requestMatchers(
 
-                        .anyRequest()
-                        .authenticated()
+                                        "/api/auth/**",
+
+                                        "/v3/api-docs/**",
+
+                                        "/swagger-ui/**",
+
+                                        "/swagger-ui.html"
+
+                                ).permitAll()
+
+                                .anyRequest().authenticated()
+
                 )
 
                 .authenticationProvider(authenticationProvider())

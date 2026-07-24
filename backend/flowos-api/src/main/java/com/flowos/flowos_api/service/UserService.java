@@ -1,9 +1,13 @@
 package com.flowos.flowos_api.service;
 
 import com.flowos.flowos_api.dto.ChangePasswordRequest;
+import com.flowos.flowos_api.dto.CreateUserRequest;
 import com.flowos.flowos_api.dto.UpdateProfileRequest;
 import com.flowos.flowos_api.dto.UserResponse;
 import com.flowos.flowos_api.entity.User;
+import com.flowos.flowos_api.exception.BadRequestException;
+import com.flowos.flowos_api.exception.ResourceNotFoundException;
+import com.flowos.flowos_api.exception.UnauthorizedException;
 import com.flowos.flowos_api.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,31 +17,40 @@ import java.util.List;
 @Service
 public class UserService {
 
-    private final UserRepository repository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    public UserService(UserRepository repository, PasswordEncoder passwordEncoder) {
-        this.repository = repository;
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
-    public List<User> getAllUsers() {
-        return repository.findAll();
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
     }
 
-    public User save(User user) {
+    public UserResponse save(CreateUserRequest request) {
 
-        if (repository.existsByEmail(user.getEmail())) {
-            throw new RuntimeException("Email already exists");
-        }
+        User user = new User();
 
-        return repository.save(user);
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setEmail(request.getEmail());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(request.getRole());
+
+        User savedUser = userRepository.save(user);
+
+        return mapToResponse(savedUser);
     }
 
     public UserResponse getProfile(String email) {
 
-        User user = repository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new ResourceNotFoundException("User not found"));
 
         return new UserResponse(
 
@@ -55,14 +68,14 @@ public class UserService {
             UpdateProfileRequest request
     ) {
 
-        User user = repository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new ResourceNotFoundException("User not found"));
 
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
 
-        repository.save(user);
+        userRepository.save(user);
 
         return new UserResponse(
                 user.getId(),
@@ -77,24 +90,34 @@ public class UserService {
             ChangePasswordRequest request
     ) {
 
-        User user = repository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new ResourceNotFoundException("User not found"));
 
         if (!passwordEncoder.matches(
                 request.getOldPassword(),
                 user.getPassword())) {
 
-            throw new RuntimeException("Old password is incorrect");
+            throw new UnauthorizedException("Old password is incorrect");
         }
 
         user.setPassword(
                 passwordEncoder.encode(request.getNewPassword())
         );
 
-        repository.save(user);
+        userRepository.save(user);
 
         return "Password updated successfully";
+    }
+    private UserResponse mapToResponse(User user) {
+
+        return new UserResponse(
+                user.getId(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole()
+        );
     }
 
 }
