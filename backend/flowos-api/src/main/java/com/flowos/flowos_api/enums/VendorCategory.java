@@ -1,7 +1,7 @@
 package com.flowos.flowos_api.enums;
 
 public enum VendorCategory {
-
+    IT,
     SOFTWARE,
     HARDWARE,
     CONSULTING,
