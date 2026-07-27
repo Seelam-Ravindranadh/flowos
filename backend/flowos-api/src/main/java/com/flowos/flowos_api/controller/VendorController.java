@@ -17,7 +17,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/vendors")
 @RequiredArgsConstructor
-@Tag(name = "Vendor APIs")
+@CrossOrigin(origins = "http://localhost:5173")
+@Tag(name = "Vendor APIs", description = "Vendor Management APIs")
 public class VendorController {
 
     private final VendorService vendorService;
@@ -49,7 +50,7 @@ public class VendorController {
     @PutMapping("/{id}")
     public VendorResponse updateVendor(
             @PathVariable Long id,
-            @RequestBody UpdateVendorRequest request) {
+            @Valid @RequestBody UpdateVendorRequest request) {
 
         return vendorService.updateVendor(id, request);
     }

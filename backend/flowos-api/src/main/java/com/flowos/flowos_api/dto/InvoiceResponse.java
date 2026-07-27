@@ -1,172 +1,61 @@
 package com.flowos.flowos_api.dto;
 
 import com.flowos.flowos_api.enums.InvoiceStatus;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+@Data
+@Schema(description = "Invoice Response")
 public class InvoiceResponse {
 
+    @Schema(example = "1")
     private Long id;
 
+    @Schema(example = "INV-1001")
     private String invoiceNumber;
 
+    @Schema(example = "1")
     private Long customerId;
 
+    @Schema(example = "John Smith")
     private String customerName;
 
+    @Schema(example = "2")
     private Long vendorId;
 
+    @Schema(example = "ABC Technologies")
     private String vendorName;
 
+    @Schema(example = "2026-07-27")
     private LocalDate invoiceDate;
 
+    @Schema(example = "2026-08-10")
     private LocalDate dueDate;
 
+    @Schema(example = "2026-08-05")
     private LocalDate paidDate;
 
+    @Schema(example = "25000")
     private BigDecimal amount;
 
+    @Schema(example = "4500")
     private BigDecimal tax;
 
+    @Schema(example = "29500")
     private BigDecimal totalAmount;
 
+    @Schema(example = "10000")
     private BigDecimal paidAmount;
 
+    @Schema(example = "19500")
     private BigDecimal outstandingAmount;
 
+    @Schema(example = "PAID")
     private InvoiceStatus status;
 
+    @Schema(example = "Paid through bank transfer")
     private String notes;
-
-    public InvoiceResponse() {
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getInvoiceNumber() {
-        return invoiceNumber;
-    }
-
-    public void setInvoiceNumber(String invoiceNumber) {
-        this.invoiceNumber = invoiceNumber;
-    }
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
-
-    public String getCustomerName() {
-        return customerName;
-    }
-
-    public void setCustomerName(String customerName) {
-        this.customerName = customerName;
-    }
-
-    public Long getVendorId() {
-        return vendorId;
-    }
-
-    public void setVendorId(Long vendorId) {
-        this.vendorId = vendorId;
-    }
-
-    public String getVendorName() {
-        return vendorName;
-    }
-
-    public void setVendorName(String vendorName) {
-        this.vendorName = vendorName;
-    }
-
-    public LocalDate getInvoiceDate() {
-        return invoiceDate;
-    }
-
-    public void setInvoiceDate(LocalDate invoiceDate) {
-        this.invoiceDate = invoiceDate;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public LocalDate getPaidDate() {
-        return paidDate;
-    }
-
-    public void setPaidDate(LocalDate paidDate) {
-        this.paidDate = paidDate;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public BigDecimal getTax() {
-        return tax;
-    }
-
-    public void setTax(BigDecimal tax) {
-        this.tax = tax;
-    }
-
-    public BigDecimal getTotalAmount() {
-        return totalAmount;
-    }
-
-    public void setTotalAmount(BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-    }
-
-    public BigDecimal getPaidAmount() {
-        return paidAmount;
-    }
-
-    public void setPaidAmount(BigDecimal paidAmount) {
-        this.paidAmount = paidAmount;
-    }
-
-    public BigDecimal getOutstandingAmount() {
-        return outstandingAmount;
-    }
-
-    public void setOutstandingAmount(BigDecimal outstandingAmount) {
-        this.outstandingAmount = outstandingAmount;
-    }
-
-    public InvoiceStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(InvoiceStatus status) {
-        this.status = status;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
 }

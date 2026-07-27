@@ -6,9 +6,12 @@ import com.flowos.flowos_api.dto.UpdateCustomerRequest;
 import com.flowos.flowos_api.enums.CustomerStatus;
 import com.flowos.flowos_api.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,7 +28,24 @@ public class CustomerController {
     /**
      * Create Customer
      */
-    @Operation(summary = "Create Customer")
+    @Operation(
+            summary = "Create Customer",
+            description = "Creates a new customer in the system."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Customer created successfully"
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Validation failed"
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Customer already exists"
+            )
+    })
     @PostMapping
     public CustomerResponse createCustomer(
             @Valid @RequestBody CreateCustomerRequest request) {
@@ -69,12 +89,17 @@ public class CustomerController {
     /**
      * Delete Customer
      */
+    /**
+     * Delete Customer
+     */
     @Operation(summary = "Delete Customer")
     @DeleteMapping("/{id}")
-    public String deleteCustomer(
+    public ResponseEntity<String> deleteCustomer(
             @PathVariable Long id) {
 
-        return customerService.deleteCustomer(id);
+        customerService.deleteCustomer(id);
+
+        return ResponseEntity.ok("Customer deleted successfully");
     }
 
     /**
@@ -98,5 +123,7 @@ public class CustomerController {
 
         return customerService.getCustomersByStatus(status);
     }
+
+
 
 }

@@ -3,8 +3,7 @@ package com.flowos.flowos_api.entity;
 import com.flowos.flowos_api.enums.VendorCategory;
 import com.flowos.flowos_api.enums.VendorStatus;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -12,6 +11,8 @@ import java.time.LocalDateTime;
 @Table(name = "vendors")
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Vendor {
 
     @Id

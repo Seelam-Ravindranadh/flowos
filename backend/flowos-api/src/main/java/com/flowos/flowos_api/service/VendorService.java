@@ -9,21 +9,20 @@ import com.flowos.flowos_api.enums.VendorStatus;
 import com.flowos.flowos_api.exception.BadRequestException;
 import com.flowos.flowos_api.exception.ResourceNotFoundException;
 import com.flowos.flowos_api.repository.VendorRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@RequiredArgsConstructor
 @Service
 @Slf4j
 public class VendorService {
 
     private final VendorRepository vendorRepository;
 
-    public VendorService(VendorRepository vendorRepository) {
-        this.vendorRepository = vendorRepository;
-    }
 
     /**
      * Create Vendor
@@ -81,7 +80,7 @@ public class VendorService {
 
         Vendor vendor = vendorRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Vendor not found"));
+                        new ResourceNotFoundException("Vendor not found with id : " + id));
 
         return mapToResponse(vendor);
     }
@@ -95,7 +94,7 @@ public class VendorService {
 
         Vendor vendor = vendorRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Vendor not found"));
+                        new ResourceNotFoundException("Vendor not found with id : " + id));
 
         vendor.setVendorName(request.getVendorName());
         vendor.setPhone(request.getPhone());
@@ -123,7 +122,7 @@ public class VendorService {
 
         Vendor vendor = vendorRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Vendor not found"));
+                        new ResourceNotFoundException("Vendor not found with id : " + id));
 
         vendorRepository.delete(vendor);
 
@@ -187,6 +186,8 @@ public class VendorService {
         response.setGstNumber(vendor.getGstNumber());
         response.setCategory(vendor.getCategory());
         response.setStatus(vendor.getStatus());
+        response.setCreatedAt(vendor.getCreatedAt());
+        response.setUpdatedAt(vendor.getUpdatedAt());
 
         return response;
     }

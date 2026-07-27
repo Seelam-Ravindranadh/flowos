@@ -1,5 +1,6 @@
 package com.flowos.flowos_api.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
@@ -56,18 +57,16 @@ public class OpenApiConfig {
                                 .addList(securitySchemeName)
                 )
 
-                .schemaRequirement(
+                .components(new Components()
+                .addSecuritySchemes(
                         securitySchemeName,
                         new SecurityScheme()
-
                                 .name(securitySchemeName)
-
                                 .type(SecurityScheme.Type.HTTP)
-
                                 .scheme("bearer")
-
                                 .bearerFormat("JWT")
-                );
+                )
+        );
     }
 
 }

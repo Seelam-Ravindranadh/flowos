@@ -8,21 +8,21 @@ import com.flowos.flowos_api.enums.CustomerStatus;
 import com.flowos.flowos_api.exception.BadRequestException;
 import com.flowos.flowos_api.exception.ResourceNotFoundException;
 import com.flowos.flowos_api.repository.CustomerRepository;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@RequiredArgsConstructor
 @Service
 @Slf4j
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
 
-    public CustomerService(CustomerRepository customerRepository) {
-        this.customerRepository = customerRepository;
-    }
+
 
     /**
      * Create Customer
@@ -77,7 +77,7 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Customer not found"));
+                        new ResourceNotFoundException("Customer not found with id : " + id));
 
         return mapToResponse(customer);
     }
@@ -91,7 +91,7 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Customer not found"));
+                        new ResourceNotFoundException("Customer not found with id : " + id));
 
         customer.setCustomerName(request.getCustomerName());
         customer.setPhone(request.getPhone());
@@ -116,7 +116,7 @@ public class CustomerService {
 
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Customer not found"));
+                        new ResourceNotFoundException("Customer not found with id : " + id));
 
         customerRepository.delete(customer);
 

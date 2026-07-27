@@ -12,17 +12,17 @@ import com.flowos.flowos_api.exception.ResourceNotFoundException;
 import com.flowos.flowos_api.repository.CustomerRepository;
 import com.flowos.flowos_api.repository.InvoiceRepository;
 import com.flowos.flowos_api.repository.VendorRepository;
-import lombok.Data;
+
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 
-
+@RequiredArgsConstructor
 @Service
 @Slf4j
-@Data
 public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
@@ -31,16 +31,6 @@ public class InvoiceService {
 
     private final VendorRepository vendorRepository;
 
-    public InvoiceService(
-            InvoiceRepository invoiceRepository,
-            CustomerRepository customerRepository,
-            VendorRepository vendorRepository
-    ) {
-
-        this.invoiceRepository = invoiceRepository;
-        this.customerRepository = customerRepository;
-        this.vendorRepository = vendorRepository;
-    }
 
     /**
      * Create Invoice
@@ -73,6 +63,12 @@ public class InvoiceService {
 
         Invoice invoice = new Invoice();
 
+        if (!invoice.getInvoiceNumber().equals(request.getInvoiceNumber())
+                && invoiceRepository.existsByInvoiceNumber(request.getInvoiceNumber())) {
+
+            throw new BadRequestException(
+                    "Invoice Number already exists.");
+        }
         invoice.setInvoiceNumber(request.getInvoiceNumber());
 
         invoice.setCustomer(customer);
@@ -178,7 +174,7 @@ public class InvoiceService {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
-                                "Invoice not found"));
+                                "Invoice not found with id : " + id));
 
         return mapToResponse(invoice);
     }
@@ -222,11 +218,13 @@ public class InvoiceService {
 
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Invoice not found"));
+                        new ResourceNotFoundException("Invoice not found with id : " + id));
 
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Customer not found"));
+                        new ResourceNotFoundException(
+                                "Customer not found with id : "
+                                        + request.getCustomerId()));
 
         Vendor vendor = vendorRepository.findById(request.getVendorId())
                 .orElseThrow(() ->
@@ -280,7 +278,7 @@ public class InvoiceService {
 
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Invoice not found"));
+                        new ResourceNotFoundException("Invoice not found with id : " + id));
 
         invoiceRepository.delete(invoice);
 

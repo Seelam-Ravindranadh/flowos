@@ -1,19 +1,16 @@
 package com.flowos.flowos_api.dto;
 
 import com.flowos.flowos_api.enums.InvoiceStatus;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-@Data
 public class UpdateInvoiceRequest {
 
-    @NotBlank
+    @NotBlank(message = "Invoice number is required")
     private String invoiceNumber;
 
     @NotNull
@@ -25,22 +22,21 @@ public class UpdateInvoiceRequest {
     @NotNull
     private LocalDate invoiceDate;
 
-    @FutureOrPresent
+    @NotNull
     private LocalDate dueDate;
 
-    @DecimalMin("0.0")
+    private LocalDate paidDate;
+
+    @Positive(message = "Amount must be positive")
     private BigDecimal amount;
 
-    @DecimalMin("0.0")
+    @Positive(message = "Tax must be positive")
     private BigDecimal tax;
 
-    @DecimalMin("0.0")
+    @Positive(message = "Paid amount must be positive")
     private BigDecimal paidAmount;
-
-    private LocalDate paidDate;
 
     private InvoiceStatus status;
 
     private String notes;
-
 }

@@ -1,105 +1,70 @@
 package com.flowos.flowos_api.dto;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.FutureOrPresent;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+@Schema(description = "Create Invoice Request")
 public class CreateInvoiceRequest {
 
+    @Schema(
+            description = "Invoice Number",
+            example = "INV-1001"
+    )
     @NotBlank(message = "Invoice number is required")
     private String invoiceNumber;
 
-    @NotNull(message = "Customer Id is required")
+    @Schema(
+            description = "Customer ID",
+            example = "1"
+    )
+    @NotNull(message = "Customer is required")
     private Long customerId;
 
-    @NotNull(message = "Vendor Id is required")
+    @Schema(
+            description = "Vendor ID",
+            example = "2"
+    )
+    @NotNull(message = "Vendor is required")
     private Long vendorId;
 
-    @NotNull(message = "Invoice date is required")
+    @Schema(
+            description = "Invoice Date",
+            example = "2026-07-27"
+    )
+    @NotNull(message = "Invoice Date is required")
     private LocalDate invoiceDate;
 
-    @NotNull(message = "Due date is required")
-    @FutureOrPresent(message = "Due date cannot be in the past")
+    @Schema(
+            description = "Due Date",
+            example = "2026-08-10"
+    )
+    @NotNull(message = "Due Date is required")
     private LocalDate dueDate;
 
-    @NotNull(message = "Amount is required")
-    @DecimalMin(value = "0.0", inclusive = false)
+    @Schema(
+            description = "Invoice Amount",
+            example = "25000"
+    )
+    @NotNull
+    @Positive(message = "Amount must be greater than zero")
     private BigDecimal amount;
 
-    @NotNull(message = "Tax is required")
-    @DecimalMin(value = "0.0")
+    @Schema(
+            description = "Tax Amount",
+            example = "4500"
+    )
+    @NotNull
+    @Positive(message = "Tax must be greater than zero")
     private BigDecimal tax;
 
+    @Schema(
+            description = "Additional Notes",
+            example = "Payment due in 15 days"
+    )
     private String notes;
-
-    public CreateInvoiceRequest() {
-    }
-
-    public String getInvoiceNumber() {
-        return invoiceNumber;
-    }
-
-    public void setInvoiceNumber(String invoiceNumber) {
-        this.invoiceNumber = invoiceNumber;
-    }
-
-    public Long getCustomerId() {
-        return customerId;
-    }
-
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
-    }
-
-    public Long getVendorId() {
-        return vendorId;
-    }
-
-    public void setVendorId(Long vendorId) {
-        this.vendorId = vendorId;
-    }
-
-    public LocalDate getInvoiceDate() {
-        return invoiceDate;
-    }
-
-    public void setInvoiceDate(LocalDate invoiceDate) {
-        this.invoiceDate = invoiceDate;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public void setDueDate(LocalDate dueDate) {
-        this.dueDate = dueDate;
-    }
-
-    public BigDecimal getAmount() {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount) {
-        this.amount = amount;
-    }
-
-    public BigDecimal getTax() {
-        return tax;
-    }
-
-    public void setTax(BigDecimal tax) {
-        this.tax = tax;
-    }
-
-    public String getNotes() {
-        return notes;
-    }
-
-    public void setNotes(String notes) {
-        this.notes = notes;
-    }
 }

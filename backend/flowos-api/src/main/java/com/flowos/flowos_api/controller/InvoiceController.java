@@ -8,10 +8,13 @@ import com.flowos.flowos_api.service.InvoiceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/invoices")
 @CrossOrigin(origins = "http://localhost:5173")
@@ -19,13 +22,6 @@ import java.util.List;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
-
-    public InvoiceController(
-            InvoiceService invoiceService
-    ) {
-        this.invoiceService = invoiceService;
-    }
-
     /**
      * Create Invoice
      */
@@ -94,11 +90,12 @@ public class InvoiceController {
      */
     @Operation(summary = "Delete Invoice")
     @DeleteMapping("/{id}")
-    public String deleteInvoice(
-            @PathVariable Long id
-    ) {
+    public ResponseEntity<String> deleteInvoice(
+            @PathVariable Long id) {
 
-        return invoiceService.deleteInvoice(id);
+        invoiceService.deleteInvoice(id);
+
+        return ResponseEntity.ok("Invoice deleted successfully");
     }
 
     /**
