@@ -81,7 +81,9 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="premium-grid absolute inset-0 opacity-70" />
+        <div
+          className="premium-grid absolute inset-0 opacity-70 pointer-events-none"
+        />
         <div className="pointer-events-none absolute -top-40 left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-gradient-to-b from-brand-500/20 via-accent-500/10 to-transparent blur-3xl" />
         <div className="relative mx-auto max-w-7xl px-5 pb-24 pt-16 sm:px-8 sm:pt-24">
           <motion.div {...fade(0)} className="mx-auto max-w-3xl text-center">

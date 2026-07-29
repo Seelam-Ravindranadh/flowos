@@ -48,7 +48,7 @@ export type NavKey =
   | 'fraud'
   | 'reports';
 
-export interface NavItem {
+  export interface NavItem {
   key: NavKey;
   label: string;
   icon: LucideIcon;
