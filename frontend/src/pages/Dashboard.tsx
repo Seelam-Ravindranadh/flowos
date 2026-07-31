@@ -1,4 +1,6 @@
 import { motion } from "framer-motion";
+import useDashboard from "../hooks/useDashboard";
+
 import {
   Activity,
   AlertTriangle,
@@ -42,16 +44,7 @@ import { ChartTooltip } from "../components/ui/ChartTooltip";
 
 import { AiPill, InsightCard } from "../components/InsightCard";
 
-import {
-  cashFlowSeries,
-  expenseBreakdown,
-  fundingRequests,
-  insights,
-  invoices,
-  kpi,
-  receivableAging,
-  revenueSeries,
-} from "../lib/data";
+
 
 import { fmtINR } from "../lib/format";
 
@@ -73,6 +66,28 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
+  const { dashboard, loading, error } = useDashboard();
+
+if (loading) {
+    return <h2>Loading...</h2>;
+}
+
+if (error) {
+    return <h2>{error}</h2>;
+}
+
+if (!dashboard) {
+    return <h2>No Dashboard Data</h2>;
+}
+
+const summary = dashboard.summary;
+const cashFlowSeries = dashboard.cashFlow;
+const revenueSeries = dashboard.revenueProfit;
+const expenseBreakdown = dashboard.expenseBreakdown;
+const receivableAging = dashboard.receivableAging;
+const invoices = dashboard.recentInvoices;
+const fundingRequests = dashboard.fundingRequests;
+const businessHealth = dashboard.businessHealth;
   return (
     <div className="space-y-6">
 
@@ -113,7 +128,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
       >
         <KpiCard
           label="Cash Available"
-          value={fmtINR(kpi.cashAvailable, { compact: true })}
+          value={fmtINR(summary.cashBalance, { compact: true })}
           delta={8.2}
           deltaLabel="vs last month"
           tone="brand"
@@ -123,7 +138,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         <KpiCard
           label="Working Capital"
-          value={fmtINR(kpi.workingCapital, { compact: true })}
+          value={fmtINR(summary.totalReceivables - summary.totalPayables, { compact: true })}
           delta={12.4}
           deltaLabel="+₹46L MoM"
           tone="accent"
@@ -133,7 +148,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         <KpiCard
           label="Revenue (MTD)"
-          value={fmtINR(kpi.revenueMTD, { compact: true })}
+          value={fmtINR(summary.totalRevenue, { compact: true })}
           delta={5.1}
           deltaLabel="vs target ₹3.1Cr"
           tone="success"
@@ -143,9 +158,9 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
         <KpiCard
           label="Outstanding Invoices"
-          value={String(kpi.outstandingInvoices)}
+          value={String(summary.overdueInvoices)}
           delta={-3.2}
-          deltaLabel={fmtINR(kpi.pendingReceivables, { compact: true })}
+          deltaLabel={fmtINR(summary.totalReceivables, { compact: true })}
           tone="warning"
           icon={<FileText size={18} />}
           spark={spark(4).map((d) => d.value)}
@@ -305,7 +320,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
           <CardBody className="flex flex-col items-center">
             <ScoreRing
-              score={kpi.businessHealth}
+              score={businessHealth.score}
               min={0}
               max={100}
               label="Health"
@@ -412,19 +427,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <CardBody className="space-y-3 pt-3">
               <Row
                 label="Cash Available"
-                value={fmtINR(kpi.cashAvailable, { compact: true })}
+                value={fmtINR(summary.cashBalance, { compact: true })}
                 tone="success"
               />
 
               <Row
                 label="Expected Inflow (30d)"
-                value={fmtINR(kpi.expectedInflow, { compact: true })}
+                value={fmtINR(summary.expectedInflow, { compact: true })}
                 tone="brand"
               />
 
               <Row
                 label="Expected Outflow (30d)"
-                value={fmtINR(kpi.expectedOutflow, { compact: true })}
+                value={fmtINR(summary.expectedOutflow, { compact: true })}
                 tone="danger"
               />
 
@@ -449,7 +464,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             />
 
             <CardBody className="flex items-center gap-4 pt-3">
-              <ScoreRing score={kpi.creditScore} size={104} stroke={9} />
+              <ScoreRing score={businessHealth.creditScore} size={104} stroke={9} />
 
               <div className="flex-1">
                 <p className="text-[12px] text-slate-500 dark:text-slate-400">
@@ -556,7 +571,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <CardHeader
             title="Receivables Aging"
             subtitle={
-              fmtINR(kpi.pendingReceivables, { compact: true }) + " outstanding"
+              fmtINR(summary.totalReceivables, { compact: true }) + " outstanding"
             }
             icon={<Receipt size={16} />}
           />
@@ -610,7 +625,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   >
                     {receivableAging.map((item, index) => (
                       <Cell
-                        key={item.bucket}
+                        key={item.agingBucket}
                         fill={
                           index === 0
                             ? "#10B981"
@@ -632,11 +647,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <div className="mt-3 space-y-2">
               {receivableAging.map((item) => (
                 <div
-                  key={item.bucket}
+                  key={item.agingBucket}
                   className="flex items-center justify-between text-[12px]"
                 >
                   <span className="text-slate-500 dark:text-slate-400">
-                    {item.bucket}
+                    {item.agingBucket}
                   </span>
 
                   <span className="font-semibold tabular-nums text-slate-900 dark:text-white">
@@ -675,7 +690,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       paddingAngle={2}
                     >
                       {expenseBreakdown.map((item) => (
-                        <Cell key={item.name} fill={item.color} />
+                        <Cell key={item.category} fill={"green"} />
                       ))}
                     </Pie>
 
@@ -690,19 +705,19 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
               <div className="flex-1 space-y-3">
                 {expenseBreakdown.map((item) => (
                   <div
-                    key={item.name}
+                    key={item.category}
                     className="flex items-center justify-between text-[12px]"
                   >
                     <span className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-300">
                       <span
                         className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: item.color }}
+                        style={{ backgroundColor: "green" }}
                       />
-                      {item.name}
+                      {item.category}
                     </span>
 
                     <span className="font-semibold tabular-nums text-slate-900 dark:text-white">
-                      {item.value}%
+                      {item.percentage}%
                     </span>
                   </div>
                 ))}
@@ -742,7 +757,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
               {invoices.slice(0, 6).map((invoice) => (
                 <motion.div
-                  key={invoice.id}
                   initial={{ opacity: 0, y: 8 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -753,7 +767,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[12.5px] font-semibold text-slate-900 dark:text-white">
-                        {invoice.number}
+                        {invoice.invoiceNumber}
                       </span>
 
                       <StatusBadge status={invoice.status} />
@@ -765,7 +779,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
                     <p className="text-[11px] text-slate-400">
                       Due{" "}
-                      {new Date(invoice.dueOn).toLocaleDateString("en-IN", {
+                      {new Date(invoice.dueDate).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
@@ -776,13 +790,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   {/* Right */}
                   <div className="text-right">
                     <div className="font-display text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
-                      {fmtINR(invoice.total, { compact: true })}
-                    </div>
-
-                    <div className="mt-1 text-[11px] text-slate-400">
-                      {invoice.daysOutstanding > 0
-                        ? `${invoice.daysOutstanding} Days`
-                        : "Paid"}
+                      {fmtINR(invoice.amount, { compact: true })}
                     </div>
                   </div>
                 </motion.div>
@@ -826,30 +834,30 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-[12.5px] font-semibold text-slate-900 dark:text-white">
-                        {request.invoiceNumber}
+                        {request.lenderName}
                       </span>
 
                       <StatusBadge status={request.status} />
                     </div>
 
                     <p className="mt-1 truncate text-[12px] text-slate-500 dark:text-slate-400">
-                      {request.customerName}
+                      {request.lenderName}
                     </p>
 
                     <p className="text-[11px] text-slate-400">
-                      {request.offers} lender offers
-                      {request.bestRate ? ` • Best ${request.bestRate}%` : ""}
+                      {request.interestRate} lender offers
+                      {request.interestRate ? ` • Best ${request.interestRate}%` : ""}
                     </p>
                   </div>
 
                   {/* Right */}
                   <div className="text-right">
                     <div className="font-display text-sm font-semibold tabular-nums text-slate-900 dark:text-white">
-                      {fmtINR(request.amount, { compact: true })}
+                      {fmtINR(request.requestedAmount, { compact: true })}
                     </div>
 
                     <div className="mt-1 text-[11px] text-brand-600 dark:text-brand-400">
-                      {request.advanceRatio}% Advance
+                      {request.interestRate}% Advance
                     </div>
                   </div>
                 </motion.div>

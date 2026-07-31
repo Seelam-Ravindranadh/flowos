@@ -30,7 +30,11 @@ export default function Login() {
         }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+
+console.log(text);
+
+const data = text ? JSON.parse(text) : {};
 
       if (!response.ok) {
         alert(data.message || "Login Failed");
@@ -46,7 +50,9 @@ export default function Login() {
       alert("Login Successful");
 
       // Redirect to Dashboard
-      navigate("/dashboard");
+      console.log("Before navigate");
+      navigate("/dashboard", { replace: true });
+      console.log("After navigate");
 
     } catch (error) {
       console.error(error);
