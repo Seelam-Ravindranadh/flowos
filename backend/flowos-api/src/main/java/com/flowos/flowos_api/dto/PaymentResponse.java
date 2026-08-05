@@ -1,40 +1,31 @@
-package com.flowos.flowos_api.entity;
+package com.flowos.flowos_api.dto;
 
 import com.flowos.flowos_api.enums.PaymentMethod;
 import com.flowos.flowos_api.enums.PaymentStatus;
-import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-@Entity
-@Table(name = "payments")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Payment {
+public class PaymentResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
     private String paymentNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "invoice_id")
-    private Invoice invoice;
+    private Long invoiceId;
 
-    @Column(nullable = false, precision = 18, scale = 2)
+    private String invoiceNumber;
+
     private BigDecimal amount;
 
-    @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
-    @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
     private LocalDate paymentDate;

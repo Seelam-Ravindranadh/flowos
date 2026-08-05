@@ -80,6 +80,11 @@ if (!dashboard) {
     return <h2>No Dashboard Data</h2>;
 }
 
+const insights = [
+    "Revenue increased 18.6%",
+    "Cash runway is healthy",
+    "3 invoices overdue"
+];
 const summary = dashboard.summary;
 const cashFlowSeries = dashboard.cashFlow;
 const revenueSeries = dashboard.revenueProfit;
@@ -224,7 +229,7 @@ const businessHealth = dashboard.businessHealth;
                   />
 
                   <XAxis
-                    dataKey="label"
+                    dataKey="month"
                     interval={6}
                     stroke="currentColor"
                     className="text-slate-400"
@@ -251,17 +256,10 @@ const businessHealth = dashboard.businessHealth;
                     }
                   />
 
-                  <ReferenceLine
-                    x="Today"
-                    stroke="#1E78FF"
-                    strokeDasharray="4 4"
-                    strokeOpacity={0.5}
-                  />
-
                   {/* Actual Balance */}
                   <Area
                     type="monotone"
-                    dataKey="balance"
+                    dataKey="actual"
                     name="Actual Balance"
                     stroke="#1E78FF"
                     strokeWidth={2.5}
@@ -401,17 +399,15 @@ const businessHealth = dashboard.businessHealth;
           />
 
           <CardBody className="space-y-3 pt-3">
-            {insights.slice(0, 4).map((insight, index) => (
-              <InsightCard key={insight.id} insight={insight} index={index} />
-            ))}
-
-            <button
-              onClick={() => onNavigate("assistant")}
-              className="block w-full rounded-xl border border-dashed border-slate-300 py-3 text-center text-[13px] font-medium text-slate-500 transition hover:border-brand-500 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-400 dark:hover:text-brand-400"
-            >
+           <button
+               onClick={() => onNavigate("assistant")}
+                className="block w-full rounded-xl border border-dashed border-slate-300 py-3 text-center text-[13px] font-medium text-slate-500 transition hover:border-brand-500 hover:text-brand-600 dark:border-white/10 dark:text-slate-400 dark:hover:border-brand-400 dark:hover:text-brand-400"
+             >
               Ask Flow AI for more recommendations →
             </button>
           </CardBody>
+
+          
         </Card>
 
         {/* ------------------------------------------------------------ */}
@@ -432,22 +428,22 @@ const businessHealth = dashboard.businessHealth;
               />
 
               <Row
-                label="Expected Inflow (30d)"
-                value={fmtINR(summary.expectedInflow, { compact: true })}
-                tone="brand"
+                 label="Expected Inflow"
+                value={fmtINR(summary.totalReceivables)}
+                tone="success"
               />
 
               <Row
-                label="Expected Outflow (30d)"
-                value={fmtINR(summary.expectedOutflow, { compact: true })}
-                tone="danger"
+                  label="Expected Outflow"
+                  value={fmtINR(summary.totalPayables)}
+                  tone="success"
               />
 
               <div className="my-2 h-px bg-slate-200/70 dark:bg-white/5" />
 
               <Row
                 label="Net Cash Position"
-                value={fmtINR(kpi.netCashPosition, { compact: true, sign: true })}
+                value={fmtINR(summary.cashBalance, { compact: true, sign: true })}
                 tone="brand"
                 bold
               />
@@ -519,7 +515,7 @@ const businessHealth = dashboard.businessHealth;
                   />
 
                   <XAxis
-                    dataKey="m"
+                    dataKey="month"
                     tick={{ fontSize: 11, fill: "currentColor" }}
                     className="text-slate-400"
                     stroke="currentColor"
@@ -603,7 +599,7 @@ const businessHealth = dashboard.businessHealth;
 
                   <YAxis
                     type="category"
-                    dataKey="bucket"
+                    dataKey="agingBucket"
                     width={70}
                     tick={{ fontSize: 11, fill: "currentColor" }}
                     className="text-slate-500 dark:text-slate-400"
@@ -683,8 +679,8 @@ const businessHealth = dashboard.businessHealth;
                   <PieChart>
                     <Pie
                       data={expenseBreakdown}
-                      dataKey="value"
-                      nameKey="name"
+                      dataKey="amount"
+                      nameKey="category"
                       innerRadius={48}
                       outerRadius={80}
                       paddingAngle={2}
@@ -823,7 +819,7 @@ const businessHealth = dashboard.businessHealth;
             <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
               {fundingRequests.map((request) => (
                 <motion.div
-                  key={request.id}
+                  key={request.requestId}
                   initial={{ opacity: 0, y: 8 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -983,10 +979,13 @@ function StatusBadge({ status }: { status: string }) {
     },
   };
 
-  const current = statusMap[status] ?? {
-    label: status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
-    className: "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300",
-  };
+  const key = status.toLowerCase();
+
+  const current =
+              statusMap[key] ?? {
+                  label: status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+                  className: "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-300",
+                };
 
   return (
     <span
