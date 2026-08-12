@@ -31,7 +31,7 @@ public class PaymentService {
      * Invoice paidAmount, outstandingAmount and status
      * are automatically recalculated.
      */
-    @Transactional
+    /* @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
         // 1. Validate payment number
@@ -116,7 +116,108 @@ public class PaymentService {
 
         return mapToResponse(savedPayment);
     }
+       */
 
+    @Transactional
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
+
+        // 1. Validate payment number
+        if (request.getPaymentNumber() == null ||
+                request.getPaymentNumber().isBlank()) {
+
+            throw new BadRequestException(
+                    "Payment number is required.");
+        }
+
+        if (paymentRepository.existsByPaymentNumber(
+                request.getPaymentNumber())) {
+
+            throw new BadRequestException(
+                    "Payment number already exists.");
+        }
+
+        // 2. Validate amount
+        validatePaymentAmount(request.getAmount());
+
+        // 3. Find invoice
+        Invoice invoice = invoiceRepository.findById(
+                        request.getInvoiceId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Invoice not found with id : "
+                                        + request.getInvoiceId()));
+
+        // 4. Validate invoice total
+        if (invoice.getTotalAmount() == null) {
+
+            throw new BadRequestException(
+                    "Invoice total amount is not available.");
+        }
+
+        // 5. Calculate current paid amount
+        BigDecimal currentPaidAmount =
+                invoice.getPaidAmount() != null
+                        ? invoice.getPaidAmount()
+                        : BigDecimal.ZERO;
+
+        // 6. Calculate actual outstanding amount
+        BigDecimal currentOutstanding =
+                invoice.getTotalAmount()
+                        .subtract(currentPaidAmount);
+
+        if (currentOutstanding.compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new BadRequestException(
+                    "Invoice has invalid outstanding amount.");
+        }
+
+        // 7. Prevent overpayment
+        if (request.getAmount()
+                .compareTo(currentOutstanding) > 0) {
+
+            throw new BadRequestException(
+                    "Payment amount cannot exceed invoice "
+                            + "outstanding amount. Outstanding amount: "
+                            + currentOutstanding);
+        }
+
+        // 8. Payment date
+        LocalDate paymentDate =
+                request.getPaymentDate() != null
+                        ? request.getPaymentDate()
+                        : LocalDate.now();
+
+        // 9. Create payment
+        Payment payment = Payment.builder()
+                .paymentNumber(request.getPaymentNumber())
+                .invoice(invoice)
+                .amount(request.getAmount())
+                .paymentMethod(request.getPaymentMethod())
+                .paymentDate(paymentDate)
+                .transactionReference(
+                        request.getTransactionReference())
+                .remarks(request.getRemarks())
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        // 10. Save payment
+        Payment savedPayment =
+                paymentRepository.save(payment);
+
+        // 11. Recalculate invoice
+        BigDecimal newPaidAmount =
+                currentPaidAmount.add(request.getAmount());
+
+        updateInvoiceAmountsAndStatus(
+                invoice,
+                newPaidAmount,
+                paymentDate);
+
+        // 12. Save invoice
+        invoiceRepository.save(invoice);
+
+        return mapToResponse(savedPayment);
+    }
     /**
      * UPDATE PAYMENT
      *
@@ -360,55 +461,51 @@ public class PaymentService {
             BigDecimal paidAmount,
             LocalDate paymentDate) {
 
+        if (invoice.getTotalAmount() == null) {
+            throw new BadRequestException(
+                    "Invoice total amount is not available.");
+        }
+
+        if (paidAmount == null ||
+                paidAmount.compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new BadRequestException(
+                    "Paid amount cannot be negative.");
+        }
+
         BigDecimal totalAmount =
                 invoice.getTotalAmount();
 
         BigDecimal outstandingAmount =
                 totalAmount.subtract(paidAmount);
 
-        /*
-         * Prevent negative outstanding amount.
-         */
-        if (outstandingAmount
-                .compareTo(BigDecimal.ZERO) < 0) {
+        if (outstandingAmount.compareTo(BigDecimal.ZERO) < 0) {
 
             throw new BadRequestException(
                     "Outstanding amount cannot be negative.");
         }
 
         invoice.setPaidAmount(paidAmount);
-        invoice.setOutstandingAmount(
-                outstandingAmount);
+        invoice.setOutstandingAmount(outstandingAmount);
 
-        /*
-         * Invoice status.
-         */
-        if (paidAmount.compareTo(BigDecimal.ZERO) == 0) {
+        // Fully paid
+        if (outstandingAmount.compareTo(BigDecimal.ZERO) == 0) {
 
-            /*
-             * Don't blindly change CANCELLED invoices.
-             */
-            if (invoice.getStatus()
-                    != InvoiceStatus.CANCELLED) {
-
-                invoice.setStatus(
-                        InvoiceStatus.SENT);
-            }
-
-            invoice.setPaidDate(null);
-
-        } else if (outstandingAmount
-                .compareTo(BigDecimal.ZERO) == 0) {
-
-            invoice.setStatus(
-                    InvoiceStatus.PAID);
-
+            invoice.setStatus(InvoiceStatus.PAID);
             invoice.setPaidDate(paymentDate);
 
+            // Partially paid
+        } else if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+
+            invoice.setStatus(InvoiceStatus.PARTIALLY_PAID);
+            invoice.setPaidDate(null);
+
+            // Not paid
         } else {
 
-            invoice.setStatus(
-                    InvoiceStatus.PARTIALLY_PAID);
+            if (invoice.getStatus() != InvoiceStatus.CANCELLED) {
+                invoice.setStatus(InvoiceStatus.SENT);
+            }
 
             invoice.setPaidDate(null);
         }
