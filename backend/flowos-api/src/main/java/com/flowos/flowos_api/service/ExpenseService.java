@@ -126,10 +126,11 @@ public class ExpenseService {
         LocalDate end =
                 yearMonth.atEndOfMonth();
 
-        return expenseRepository
-                .findByExpenseDateBetween(start, end)
-                .stream()
-                .map(Expense::getAmount)
+        List<Expense> expenses =
+                expenseRepository.findByExpenseDateBetween(start, end);
+
+        return expenses.stream()
+                .map(expense -> expense.getAmount())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 

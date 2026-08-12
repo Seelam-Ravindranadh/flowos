@@ -47,4 +47,7 @@ public class FundingRequest {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name="company_id")
     private Company company;
+
+    private String requestId;
+
 }

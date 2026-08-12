@@ -3,9 +3,14 @@ package com.flowos.flowos_api.service;
 import com.flowos.flowos_api.dto.*;
 import com.flowos.flowos_api.entity.Company;
 import com.flowos.flowos_api.entity.Expense;
+import com.flowos.flowos_api.entity.FundingRequest;
 import com.flowos.flowos_api.entity.Invoice;
 import com.flowos.flowos_api.enums.ExpenseCategory;
-import com.flowos.flowos_api.repository.*;
+import com.flowos.flowos_api.repository.CashFlowRepository;
+import com.flowos.flowos_api.repository.CompanyRepository;
+import com.flowos.flowos_api.repository.ExpenseRepository;
+import com.flowos.flowos_api.repository.FundingRequestRepository;
+import com.flowos.flowos_api.repository.InvoiceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Month;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,225 +34,28 @@ public class DashboardServiceImpl implements DashboardService {
     private final FundingRequestRepository fundingRequestRepository;
     private final CompanyRepository companyRepository;
 
-   @Override
+    @Override
     public DashboardResponse getDashboard() {
 
-        DashboardSummaryDTO summary =
-                DashboardSummaryDTO.builder()
-                        .totalRevenue(2450000.0)
-                        .cashBalance(820000.0)
-                        .totalReceivables(420000.0)
-                        .totalPayables(180000.0)
-                        .creditScore(785)
-                        .overdueInvoices(12)
-                        .revenueGrowth(18.6)
-                        .expenseGrowth(6.4)
-                        .build();
+        DashboardSummaryDTO summary = buildSummary();
 
-        List<CashFlowDTO> cashFlow = List.of(
+        List<CashFlowDTO> cashFlow = buildCashFlow();
 
-                CashFlowDTO.builder()
-                        .month("Jan")
-                        .actual(210000.0)
-                        .forecast(230000.0)
-                        .build(),
+        BusinessHealthDTO businessHealth = buildBusinessHealth();
 
-                CashFlowDTO.builder()
-                        .month("Feb")
-                        .actual(260000.0)
-                        .forecast(255000.0)
-                        .build(),
+        List<RevenueProfitDTO> revenueProfit = buildRevenueChart();
 
-                CashFlowDTO.builder()
-                        .month("Mar")
-                        .actual(280000.0)
-                        .forecast(270000.0)
-                        .build(),
+        List<ExpenseBreakdownDTO> expenseBreakdown =
+                buildExpenseBreakdown();
 
-                CashFlowDTO.builder()
-                        .month("Apr")
-                        .actual(320000.0)
-                        .forecast(310000.0)
-                        .build(),
+        List<ReceivableAgingDTO> receivableAging =
+                buildReceivableAging();
 
-                CashFlowDTO.builder()
-                        .month("May")
-                        .actual(360000.0)
-                        .forecast(345000.0)
-                        .build(),
+        List<InvoiceDTO> recentInvoices =
+                buildRecentInvoices();
 
-                CashFlowDTO.builder()
-                        .month("Jun")
-                        .actual(390000.0)
-                        .forecast(375000.0)
-                        .build()
-        );
-
-        BusinessHealthDTO businessHealth =
-                BusinessHealthDTO.builder()
-                        .score(92)
-                        .status("Excellent")
-                        .cashRunway("8 Months")
-                        .creditScore(785)
-                        .build();
-
-        List<RevenueProfitDTO> revenueProfit = List.of(
-
-                RevenueProfitDTO.builder()
-                        .month("Jan")
-                        .revenue(400000.0)
-                        .profit(80000.0)
-                        .profitMargin(20.0)
-                        .build(),
-
-                RevenueProfitDTO.builder()
-                        .month("Feb")
-                        .revenue(420000.0)
-                        .profit(92000.0)
-                        .profitMargin(21.9)
-                        .build(),
-
-                RevenueProfitDTO.builder()
-                        .month("Mar")
-                        .revenue(480000.0)
-                        .profit(105000.0)
-                        .profitMargin(21.8)
-                        .build(),
-
-                RevenueProfitDTO.builder()
-                        .month("Apr")
-                        .revenue(520000.0)
-                        .profit(118000.0)
-                        .profitMargin(22.7)
-                        .build(),
-
-                RevenueProfitDTO.builder()
-                        .month("May")
-                        .revenue(570000.0)
-                        .profit(132000.0)
-                        .profitMargin(23.2)
-                        .build(),
-
-                RevenueProfitDTO.builder()
-                        .month("Jun")
-                        .revenue(610000.0)
-                        .profit(145000.0)
-                        .profitMargin(23.8)
-                        .build()
-        );
-
-        List<ExpenseBreakdownDTO> expenseBreakdown = List.of(
-
-                ExpenseBreakdownDTO.builder()
-                        .category("Payroll")
-                        .amount(185000.0)
-                        .percentage(34.5)
-                        .build(),
-
-                ExpenseBreakdownDTO.builder()
-                        .category("Operations")
-                        .amount(95000.0)
-                        .percentage(17.7)
-                        .build(),
-
-                ExpenseBreakdownDTO.builder()
-                        .category("Marketing")
-                        .amount(82000.0)
-                        .percentage(15.3)
-                        .build(),
-
-                ExpenseBreakdownDTO.builder()
-                        .category("Technology")
-                        .amount(61000.0)
-                        .percentage(11.4)
-                        .build(),
-
-                ExpenseBreakdownDTO.builder()
-                        .category("Other")
-                        .amount(114000.0)
-                        .percentage(21.1)
-                        .build()
-        );
-
-        List<ReceivableAgingDTO> aging = List.of(
-
-                ReceivableAgingDTO.builder()
-                        .agingBucket("0-30 Days")
-                        .amount(520000.0)
-                        .invoiceCount(18)
-                        .build(),
-
-                ReceivableAgingDTO.builder()
-                        .agingBucket("31-60 Days")
-                        .amount(285000.0)
-                        .invoiceCount(10)
-                        .build(),
-
-                ReceivableAgingDTO.builder()
-                        .agingBucket("61-90 Days")
-                        .amount(146000.0)
-                        .invoiceCount(6)
-                        .build(),
-
-                ReceivableAgingDTO.builder()
-                        .agingBucket("90+ Days")
-                        .amount(72000.0)
-                        .invoiceCount(3)
-                        .build()
-        );
-
-        List<InvoiceDTO> invoices = List.of(
-
-                InvoiceDTO.builder()
-                        .invoiceNumber("INV-2026-1001")
-                        .customerName("Infosys Ltd")
-                        .amount(180000.0)
-                        .invoiceDate(LocalDate.now().minusDays(20))
-                        .dueDate(LocalDate.now().plusDays(10))
-                        .status("PENDING")
-                        .build(),
-
-                InvoiceDTO.builder()
-                        .invoiceNumber("INV-2026-1002")
-                        .customerName("TCS")
-                        .amount(245000.0)
-                        .invoiceDate(LocalDate.now().minusDays(15))
-                        .dueDate(LocalDate.now().plusDays(15))
-                        .status("APPROVED")
-                        .build(),
-
-                InvoiceDTO.builder()
-                        .invoiceNumber("INV-2026-1003")
-                        .customerName("Wipro")
-                        .amount(98000.0)
-                        .invoiceDate(LocalDate.now().minusDays(8))
-                        .dueDate(LocalDate.now().plusDays(22))
-                        .status("PAID")
-                        .build()
-        );
-
-        List<FundingRequestDTO> fundingRequests = List.of(
-
-                FundingRequestDTO.builder()
-                        .requestId("FR-2026-5001")
-                        .lenderName("HDFC Bank")
-                        .requestedAmount(500000.0)
-                        .approvedAmount(450000.0)
-                        .interestRate(11.75)
-                        .requestDate(LocalDate.now().minusDays(7))
-                        .status("APPROVED")
-                        .build(),
-
-                FundingRequestDTO.builder()
-                        .requestId("FR-2026-5002")
-                        .lenderName("ICICI Bank")
-                        .requestedAmount(300000.0)
-                        .approvedAmount(0.0)
-                        .interestRate(12.10)
-                        .requestDate(LocalDate.now().minusDays(3))
-                        .status("UNDER_REVIEW")
-                        .build()
-        );
+        List<FundingRequestDTO> fundingRequests =
+                buildFundingRequests();
 
         return DashboardResponse.builder()
                 .summary(summary)
@@ -254,136 +63,188 @@ public class DashboardServiceImpl implements DashboardService {
                 .businessHealth(businessHealth)
                 .revenueProfit(revenueProfit)
                 .expenseBreakdown(expenseBreakdown)
-                .receivableAging(aging)
-                .recentInvoices(invoices)
+                .receivableAging(receivableAging)
+                .recentInvoices(recentInvoices)
                 .fundingRequests(fundingRequests)
                 .build();
     }
 
+    /**
+     * ---------------------------------------------------------
+     * 1. DASHBOARD SUMMARY
+     * ---------------------------------------------------------
+     */
     private DashboardSummaryDTO buildSummary() {
 
         Company company = companyRepository.findAll()
                 .stream()
                 .findFirst()
-                .orElse(new Company());
+                .orElse(null);
 
-        BigDecimal totalRevenue = invoiceRepository.findAll()
-                .stream()
+        List<Invoice> invoices = invoiceRepository.findAll();
+
+        List<Expense> expenses = expenseRepository.findAll();
+
+        BigDecimal totalRevenue = invoices.stream()
                 .map(Invoice::getTotalAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal receivables = invoiceRepository.findAll()
-                .stream()
+        BigDecimal totalReceivables = invoices.stream()
                 .map(Invoice::getOutstandingAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal payables = expenseRepository.findAll()
-                .stream()
+        BigDecimal totalPayables = expenses.stream()
                 .map(Expense::getAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        long overdue = invoiceRepository.findAll()
-                .stream()
-                .filter(i -> i.getDueDate() != null)
-                .filter(i -> i.getDueDate().isBefore(LocalDate.now()))
+        int overdueInvoices = (int) invoices.stream()
+                .filter(this::isOverdue)
                 .count();
+
+        double cashBalance = 0.0;
+
+        if (company != null && company.getCashBalance() != null) {
+            cashBalance = company.getCashBalance().doubleValue();
+        }
+
+        int creditScore = 0;
+
+        if (company != null && company.getCreditScore() != null) {
+            creditScore = company.getCreditScore();
+        }
 
         return DashboardSummaryDTO.builder()
                 .totalRevenue(totalRevenue.doubleValue())
-                .cashBalance(company.getCashBalance().doubleValue())
-                .totalReceivables(receivables.doubleValue())
-                .totalPayables(payables.doubleValue())
-                .creditScore(company.getCreditScore())
-                .overdueInvoices((int) overdue)
+                .cashBalance(cashBalance)
+                .totalReceivables(totalReceivables.doubleValue())
+                .totalPayables(totalPayables.doubleValue())
+                .creditScore(creditScore)
+                .overdueInvoices(overdueInvoices)
+                .revenueGrowth(0.0)
+                .expenseGrowth(0.0)
                 .build();
     }
-    private List<RevenueProfitDTO> buildRevenueChart() {
 
-        Map<Month, BigDecimal> revenue =
-                invoiceRepository.findAll()
-                        .stream()
-                        .collect(Collectors.groupingBy(
-
-                                i -> i.getInvoiceDate().getMonth(),
-
-                                Collectors.mapping(
-                                        Invoice::getTotalAmount,
-
-                                        Collectors.reducing(
-                                                BigDecimal.ZERO,
-                                                BigDecimal::add)
-                                )
-                        ));
-
-        return revenue.entrySet()
-                .stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry ->
-
-                        RevenueProfitDTO.builder()
-                                .month(entry.getKey().name())
-                                .revenue(entry.getValue().doubleValue())
-                                .profit(0.0)
-                                .profitMargin(0.0)
-                                .build()
-
-                ).toList();
-    }
-
+    /**
+     * ---------------------------------------------------------
+     * 2. CASH FLOW
+     * ---------------------------------------------------------
+     */
     private List<CashFlowDTO> buildCashFlow() {
 
         return cashFlowRepository.findAll()
-
                 .stream()
-
-                .map(c ->
-
-                        CashFlowDTO.builder()
-
-                                .month(c.getMonth())
-
-                                .actual(c.getActualAmount().doubleValue())
-
-                                .forecast(c.getForecastAmount().doubleValue())
-
-                                .build())
-
+                .filter(Objects::nonNull)
+                .map(c -> CashFlowDTO.builder()
+                        .month(c.getMonth())
+                        .actual(
+                                c.getActualAmount() == null
+                                        ? 0.0
+                                        : c.getActualAmount().doubleValue()
+                        )
+                        .forecast(
+                                c.getForecastAmount() == null
+                                        ? 0.0
+                                        : c.getForecastAmount().doubleValue()
+                        )
+                        .build()
+                )
                 .toList();
     }
 
+    /**
+     * ---------------------------------------------------------
+     * 3. BUSINESS HEALTH
+     * ---------------------------------------------------------
+     */
     private BusinessHealthDTO buildBusinessHealth() {
 
         Company company = companyRepository.findAll()
-
                 .stream()
-
                 .findFirst()
+                .orElse(null);
 
-                .orElse(new Company());
+        int creditScore = 0;
+
+        if (company != null && company.getCreditScore() != null) {
+            creditScore = company.getCreditScore();
+        }
+
+        String status;
+
+        if (creditScore >= 750) {
+            status = "Excellent";
+        } else if (creditScore >= 650) {
+            status = "Good";
+        } else if (creditScore >= 550) {
+            status = "Average";
+        } else {
+            status = "Needs Attention";
+        }
 
         return BusinessHealthDTO.builder()
-
-                .score(company.getCreditScore())
-
-                .status(company.getCreditScore() >= 750
-                        ? "Excellent"
-                        : "Average")
-
+                .score(creditScore)
+                .status(status)
                 .cashRunway("6 Months")
-
-                .creditScore(company.getCreditScore())
-
+                .creditScore(creditScore)
                 .build();
     }
 
+    /**
+     * ---------------------------------------------------------
+     * 4. REVENUE / PROFIT CHART
+     * ---------------------------------------------------------
+     */
+    private List<RevenueProfitDTO> buildRevenueChart() {
+
+        Map<Month, BigDecimal> revenueByMonth =
+                invoiceRepository.findAll()
+                        .stream()
+                        .filter(i -> i.getInvoiceDate() != null)
+                        .filter(i -> i.getTotalAmount() != null)
+                        .collect(Collectors.groupingBy(
+                                i -> i.getInvoiceDate().getMonth(),
+                                Collectors.mapping(
+                                        Invoice::getTotalAmount,
+                                        Collectors.reducing(
+                                                BigDecimal.ZERO,
+                                                BigDecimal::add
+                                        )
+                                )
+                        ));
+
+        return revenueByMonth.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> {
+
+                    BigDecimal revenue = entry.getValue();
+
+                    return RevenueProfitDTO.builder()
+                            .month(entry.getKey().name())
+                            .revenue(revenue.doubleValue())
+                            .profit(0.0)
+                            .profitMargin(0.0)
+                            .build();
+                })
+                .toList();
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * 5. EXPENSE BREAKDOWN
+     * ---------------------------------------------------------
+     */
     private List<ExpenseBreakdownDTO> buildExpenseBreakdown() {
 
-       Map<ExpenseCategory, BigDecimal> expenseMap =
+        Map<ExpenseCategory, BigDecimal> expenseMap =
                 expenseRepository.findAll()
                         .stream()
+                        .filter(e -> e.getCategory() != null)
+                        .filter(e -> e.getAmount() != null)
                         .collect(Collectors.groupingBy(
                                 Expense::getCategory,
                                 Collectors.mapping(
@@ -395,42 +256,356 @@ public class DashboardServiceImpl implements DashboardService {
                                 )
                         ));
 
-        BigDecimal total = expenseMap.values()
-
-                .stream()
-
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total =
+                expenseMap.values()
+                        .stream()
+                        .reduce(
+                                BigDecimal.ZERO,
+                                BigDecimal::add
+                        );
 
         return expenseMap.entrySet()
-
                 .stream()
+                .sorted(
+                        Map.Entry.<ExpenseCategory, BigDecimal>
+                                        comparingByValue()
+                                .reversed()
+                )
+                .map(entry -> {
 
-                .map(e ->
+                    BigDecimal amount = entry.getValue();
 
-                        ExpenseBreakdownDTO.builder()
+                    double percentage = 0.0;
 
-                                .category(e.getKey().name())
+                    if (total.compareTo(BigDecimal.ZERO) > 0) {
 
-                                .amount(e.getValue().doubleValue())
-
-                                .percentage(
-
-                                        total.compareTo(BigDecimal.ZERO) == 0
-
-                                                ? 0
-
-                                                : e.getValue()
-
-                                                .multiply(BigDecimal.valueOf(100))
-
-                                                .divide(total,2, RoundingMode.HALF_UP)
-
-                                                .doubleValue()
-
+                        percentage = amount
+                                .multiply(BigDecimal.valueOf(100))
+                                .divide(
+                                        total,
+                                        2,
+                                        RoundingMode.HALF_UP
                                 )
+                                .doubleValue();
+                    }
 
-                                .build())
-
+                    return ExpenseBreakdownDTO.builder()
+                            .category(entry.getKey().name())
+                            .amount(amount.doubleValue())
+                            .percentage(percentage)
+                            .build();
+                })
                 .toList();
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * 6. RECEIVABLE AGING
+     * ---------------------------------------------------------
+     */
+    private List<ReceivableAgingDTO> buildReceivableAging() {
+
+        LocalDate today = LocalDate.now();
+
+        List<Invoice> invoices =
+                invoiceRepository.findAll();
+
+        long zeroToThirtyCount = 0;
+        long thirtyOneToSixtyCount = 0;
+        long sixtyOneToNinetyCount = 0;
+        long overNinetyCount = 0;
+
+        BigDecimal zeroToThirtyAmount = BigDecimal.ZERO;
+        BigDecimal thirtyOneToSixtyAmount = BigDecimal.ZERO;
+        BigDecimal sixtyOneToNinetyAmount = BigDecimal.ZERO;
+        BigDecimal overNinetyAmount = BigDecimal.ZERO;
+
+        for (Invoice invoice : invoices) {
+
+            if (invoice.getDueDate() == null) {
+                continue;
+            }
+
+            BigDecimal outstanding =
+                    invoice.getOutstandingAmount();
+
+            if (outstanding == null ||
+                    outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            long daysOverdue =
+                    java.time.temporal.ChronoUnit.DAYS.between(
+                            invoice.getDueDate(),
+                            today
+                    );
+
+            /*
+             * Not overdue yet.
+             */
+            if (daysOverdue < 0) {
+                continue;
+            }
+
+            if (daysOverdue <= 30) {
+
+                zeroToThirtyCount++;
+
+                zeroToThirtyAmount =
+                        zeroToThirtyAmount.add(outstanding);
+
+            } else if (daysOverdue <= 60) {
+
+                thirtyOneToSixtyCount++;
+
+                thirtyOneToSixtyAmount =
+                        thirtyOneToSixtyAmount.add(outstanding);
+
+            } else if (daysOverdue <= 90) {
+
+                sixtyOneToNinetyCount++;
+
+                sixtyOneToNinetyAmount =
+                        sixtyOneToNinetyAmount.add(outstanding);
+
+            } else {
+
+                overNinetyCount++;
+
+                overNinetyAmount =
+                        overNinetyAmount.add(outstanding);
+            }
+        }
+
+        return List.of(
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("0-30 Days")
+                        .amount(zeroToThirtyAmount.doubleValue())
+                        .invoiceCount((int) zeroToThirtyCount)
+                        .build(),
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("31-60 Days")
+                        .amount(thirtyOneToSixtyAmount.doubleValue())
+                        .invoiceCount((int) thirtyOneToSixtyCount)
+                        .build(),
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("61-90 Days")
+                        .amount(sixtyOneToNinetyAmount.doubleValue())
+                        .invoiceCount((int) sixtyOneToNinetyCount)
+                        .build(),
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("90+ Days")
+                        .amount(overNinetyAmount.doubleValue())
+                        .invoiceCount((int) overNinetyCount)
+                        .build()
+        );
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * 7. RECENT INVOICES
+     * ---------------------------------------------------------
+     */
+    /* private List<InvoiceDTO> buildRecentInvoices() {
+
+        return invoiceRepository.findAll()
+                .stream()
+                .filter(Objects::nonNull)
+                .sorted(
+                        Comparator.comparing(
+                                Invoice::getInvoiceDate,
+                                Comparator.nullsLast(
+                                        Comparator.reverseOrder()
+                                )
+                        )
+                )
+                .limit(5)
+                .map(invoice -> InvoiceDTO.builder()
+
+                        .invoiceNumber(
+                                invoice.getInvoiceNumber()
+                        )
+
+                        .customerName(
+                                invoice.getCustomerName()
+                        )
+
+                        .amount(
+                                invoice.getTotalAmount() == null
+                                        ? 0.0
+                                        : invoice.getTotalAmount()
+                                        .doubleValue()
+                        )
+
+                        .invoiceDate(
+                                invoice.getInvoiceDate()
+                        )
+
+                        .dueDate(
+                                invoice.getDueDate()
+                        )
+
+                        .status(
+                                invoice.getStatus() == null
+                                        ? null
+                                        : invoice.getStatus().name()
+                        )
+
+                        .build()
+                )
+                .toList();
+    } */
+
+    private List<InvoiceDTO> buildRecentInvoices() {
+
+        return invoiceRepository.findAll()
+                .stream()
+                .sorted((i1, i2) -> {
+
+                    if (i1.getCreatedAt() == null) {
+                        return 1;
+                    }
+
+                    if (i2.getCreatedAt() == null) {
+                        return -1;
+                    }
+
+                    return i2.getCreatedAt()
+                            .compareTo(i1.getCreatedAt());
+                })
+                .limit(5)
+                .map(invoice -> InvoiceDTO.builder()
+                        .invoiceNumber(invoice.getInvoiceNumber())
+
+                        .customerName(
+                                invoice.getCustomer() != null
+                                        ? invoice.getCustomer().getCustomerName()
+                                        : "Unknown"
+                        )
+
+                        .amount(
+                                invoice.getTotalAmount() != null
+                                        ? invoice.getTotalAmount().doubleValue()
+                                        : 0.0
+                        )
+
+                        .invoiceDate(invoice.getInvoiceDate())
+                        .dueDate(invoice.getDueDate())
+
+                        .status(
+                                invoice.getStatus() != null
+                                        ? invoice.getStatus().name()
+                                        : "UNKNOWN"
+                        )
+
+                        .build())
+                .toList();
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * 8. FUNDING REQUESTS
+     * ---------------------------------------------------------
+     */
+    private List<FundingRequestDTO> buildFundingRequests() {
+
+        return fundingRequestRepository.findAll()
+                .stream()
+                .filter(Objects::nonNull)
+                .sorted(
+                        Comparator.comparing(
+                                FundingRequest::getRequestDate,
+                                Comparator.nullsLast(
+                                        Comparator.reverseOrder()
+                                )
+                        )
+                )
+                .limit(5)
+                .map(request -> FundingRequestDTO.builder()
+
+                        .requestId(
+                                resolveRequestId(request)
+                        )
+
+                        .lenderName(
+                                request.getLenderName()
+                        )
+
+                        .requestedAmount(
+                                request.getRequestedAmount() == null
+                                        ? 0.0
+                                        : request.getRequestedAmount()
+                                        .doubleValue()
+                        )
+
+                        .approvedAmount(
+                                request.getApprovedAmount() == null
+                                        ? 0.0
+                                        : request.getApprovedAmount()
+                                        .doubleValue()
+                        )
+
+                        .interestRate(
+                                request.getInterestRate() == null
+                                        ? 0.0
+                                        : request.getInterestRate()
+                        )
+
+                        .requestDate(
+                                request.getRequestDate()
+                        )
+
+                        .status(
+                                request.getStatus() == null
+                                        ? null
+                                        : request.getStatus().name()
+                        )
+
+                        .build()
+                )
+                .toList();
+    }
+
+    /**
+     * FundingRequest contains both requestNumber and requestId.
+     * Prefer requestNumber and fall back to requestId.
+     */
+    private String resolveRequestId(FundingRequest request) {
+
+        if (request.getRequestNumber() != null &&
+                !request.getRequestNumber().isBlank()) {
+
+            return request.getRequestNumber();
+        }
+
+        return request.getRequestId();
+    }
+
+    /**
+     * ---------------------------------------------------------
+     * HELPER
+     * ---------------------------------------------------------
+     */
+    private boolean isOverdue(Invoice invoice) {
+
+        if (invoice.getDueDate() == null) {
+            return false;
+        }
+
+        if (invoice.getOutstandingAmount() == null) {
+            return false;
+        }
+
+        if (invoice.getOutstandingAmount()
+                .compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        return invoice.getDueDate()
+                .isBefore(LocalDate.now());
     }
 }
