@@ -133,7 +133,7 @@ const businessHealth = dashboard.businessHealth;
       >
         <KpiCard
           label="Cash Available"
-          value={fmtINR(summary.cashBalance, { compact: true })}
+          value={fmtINR(summary.cashBalance)}
           delta={8.2}
           deltaLabel="vs last month"
           tone="brand"
@@ -143,7 +143,10 @@ const businessHealth = dashboard.businessHealth;
 
         <KpiCard
           label="Working Capital"
-          value={fmtINR(summary.totalReceivables - summary.totalPayables, { compact: true })}
+          value={fmtINR(
+                 summary.totalReceivables -
+                 summary.totalPayables
+                 )}
           delta={12.4}
           deltaLabel="+₹46L MoM"
           tone="accent"
@@ -153,7 +156,7 @@ const businessHealth = dashboard.businessHealth;
 
         <KpiCard
           label="Revenue (MTD)"
-          value={fmtINR(summary.totalRevenue, { compact: true })}
+          value={fmtINR(summary.totalRevenue)}
           delta={5.1}
           deltaLabel="vs target ₹3.1Cr"
           tone="success"
@@ -163,7 +166,7 @@ const businessHealth = dashboard.businessHealth;
 
         <KpiCard
           label="Outstanding Invoices"
-          value={String(summary.overdueInvoices)}
+          value={summary.overdueInvoices.toString()}
           delta={-3.2}
           deltaLabel={fmtINR(summary.totalReceivables, { compact: true })}
           tone="warning"

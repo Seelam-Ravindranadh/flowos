@@ -1,13 +1,12 @@
-import api from "./api";
+import axios from "axios";
+
+const api = axios.create({
+  baseURL: "http://localhost:8080/api",
+});
 
 export const getDashboard = async () => {
-    const token = localStorage.getItem("token");
-
-    const response = await api.get("/dashboard", {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    });
-
-    return response.data;
+  const response = await api.get("/dashboard");
+  return response.data;
 };
+
+export default api;

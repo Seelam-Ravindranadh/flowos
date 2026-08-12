@@ -1,49 +1,51 @@
 import { useEffect, useState } from "react";
+import { dashboardService } from "../services/dashboardService";
 import { DashboardResponse } from "../types/dashboard";
-import { getDashboard } from "../api/dashboardApi";
 
-export default  function useDashboard() {
+export default function useDashboard() {
 
     const [dashboard, setDashboard] =
         useState<DashboardResponse | null>(null);
 
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] =
+        useState(true);
 
-    const [error, setError] = useState("");
+    const [error, setError] =
+        useState("");
 
     useEffect(() => {
-
-        const loadDashboard = async () => {
-
-            try {
-
-                const data = await getDashboard();
-
-                setDashboard(data);
-
-            } catch (err) {
-                console.error(err);
-                setError("Unable to load dashboard.");
-            }finally {
-
-                setLoading(false);
-
-            }
-
-        };
-
         loadDashboard();
-
     }, []);
 
+    async function loadDashboard() {
+
+        try {
+
+            setLoading(true);
+            setError("");
+
+            const response =
+                await dashboardService.getDashboard();
+
+            setDashboard(response.data);
+
+        } catch (error) {
+
+            console.error("Dashboard API failed:", error);
+
+            setError("Unable to load dashboard.");
+
+        } finally {
+
+            setLoading(false);
+
+        }
+    }
+
     return {
-
         dashboard,
-
         loading,
-
-        error
-
+        error,
+        refresh: loadDashboard
     };
-
 }

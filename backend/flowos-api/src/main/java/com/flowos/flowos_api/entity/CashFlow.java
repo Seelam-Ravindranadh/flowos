@@ -35,4 +35,8 @@ public class CashFlow {
 
     private String description;
 
+    private String month;
+    private BigDecimal actualAmount;
+    private BigDecimal forecastAmount;
+
 }

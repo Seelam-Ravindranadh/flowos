@@ -1,17 +1,34 @@
 package com.flowos.flowos_api.service;
 
 import com.flowos.flowos_api.dto.*;
+import com.flowos.flowos_api.entity.Company;
+import com.flowos.flowos_api.entity.Expense;
+import com.flowos.flowos_api.entity.Invoice;
+import com.flowos.flowos_api.enums.ExpenseCategory;
+import com.flowos.flowos_api.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.Month;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardServiceImpl implements DashboardService {
 
-    @Override
+    private final InvoiceRepository invoiceRepository;
+    private final ExpenseRepository expenseRepository;
+    private final CashFlowRepository cashFlowRepository;
+    private final FundingRequestRepository fundingRequestRepository;
+    private final CompanyRepository companyRepository;
+
+   @Override
     public DashboardResponse getDashboard() {
 
         DashboardSummaryDTO summary =
@@ -241,5 +258,179 @@ public class DashboardServiceImpl implements DashboardService {
                 .recentInvoices(invoices)
                 .fundingRequests(fundingRequests)
                 .build();
+    }
+
+    private DashboardSummaryDTO buildSummary() {
+
+        Company company = companyRepository.findAll()
+                .stream()
+                .findFirst()
+                .orElse(new Company());
+
+        BigDecimal totalRevenue = invoiceRepository.findAll()
+                .stream()
+                .map(Invoice::getTotalAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal receivables = invoiceRepository.findAll()
+                .stream()
+                .map(Invoice::getOutstandingAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal payables = expenseRepository.findAll()
+                .stream()
+                .map(Expense::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long overdue = invoiceRepository.findAll()
+                .stream()
+                .filter(i -> i.getDueDate() != null)
+                .filter(i -> i.getDueDate().isBefore(LocalDate.now()))
+                .count();
+
+        return DashboardSummaryDTO.builder()
+                .totalRevenue(totalRevenue.doubleValue())
+                .cashBalance(company.getCashBalance().doubleValue())
+                .totalReceivables(receivables.doubleValue())
+                .totalPayables(payables.doubleValue())
+                .creditScore(company.getCreditScore())
+                .overdueInvoices((int) overdue)
+                .build();
+    }
+    private List<RevenueProfitDTO> buildRevenueChart() {
+
+        Map<Month, BigDecimal> revenue =
+                invoiceRepository.findAll()
+                        .stream()
+                        .collect(Collectors.groupingBy(
+
+                                i -> i.getInvoiceDate().getMonth(),
+
+                                Collectors.mapping(
+                                        Invoice::getTotalAmount,
+
+                                        Collectors.reducing(
+                                                BigDecimal.ZERO,
+                                                BigDecimal::add)
+                                )
+                        ));
+
+        return revenue.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry ->
+
+                        RevenueProfitDTO.builder()
+                                .month(entry.getKey().name())
+                                .revenue(entry.getValue().doubleValue())
+                                .profit(0.0)
+                                .profitMargin(0.0)
+                                .build()
+
+                ).toList();
+    }
+
+    private List<CashFlowDTO> buildCashFlow() {
+
+        return cashFlowRepository.findAll()
+
+                .stream()
+
+                .map(c ->
+
+                        CashFlowDTO.builder()
+
+                                .month(c.getMonth())
+
+                                .actual(c.getActualAmount().doubleValue())
+
+                                .forecast(c.getForecastAmount().doubleValue())
+
+                                .build())
+
+                .toList();
+    }
+
+    private BusinessHealthDTO buildBusinessHealth() {
+
+        Company company = companyRepository.findAll()
+
+                .stream()
+
+                .findFirst()
+
+                .orElse(new Company());
+
+        return BusinessHealthDTO.builder()
+
+                .score(company.getCreditScore())
+
+                .status(company.getCreditScore() >= 750
+                        ? "Excellent"
+                        : "Average")
+
+                .cashRunway("6 Months")
+
+                .creditScore(company.getCreditScore())
+
+                .build();
+    }
+
+    private List<ExpenseBreakdownDTO> buildExpenseBreakdown() {
+
+       Map<ExpenseCategory, BigDecimal> expenseMap =
+                expenseRepository.findAll()
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                Expense::getCategory,
+                                Collectors.mapping(
+                                        Expense::getAmount,
+                                        Collectors.reducing(
+                                                BigDecimal.ZERO,
+                                                BigDecimal::add
+                                        )
+                                )
+                        ));
+
+        BigDecimal total = expenseMap.values()
+
+                .stream()
+
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return expenseMap.entrySet()
+
+                .stream()
+
+                .map(e ->
+
+                        ExpenseBreakdownDTO.builder()
+
+                                .category(e.getKey().name())
+
+                                .amount(e.getValue().doubleValue())
+
+                                .percentage(
+
+                                        total.compareTo(BigDecimal.ZERO) == 0
+
+                                                ? 0
+
+                                                : e.getValue()
+
+                                                .multiply(BigDecimal.valueOf(100))
+
+                                                .divide(total,2, RoundingMode.HALF_UP)
+
+                                                .doubleValue()
+
+                                )
+
+                                .build())
+
+                .toList();
     }
 }
