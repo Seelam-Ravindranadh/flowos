@@ -33,7 +33,8 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    public PaymentResponse getPayment(@PathVariable Long id) {
+    public PaymentResponse getPayment(
+            @PathVariable Long id) {
 
         return paymentService.getPayment(id);
     }
@@ -51,8 +52,16 @@ public class PaymentController {
         return paymentService.getPaymentsByStatus(status);
     }
 
+    @GetMapping("/invoice/{invoiceId}")
+    public List<PaymentResponse> getPaymentsByInvoice(
+            @PathVariable Long invoiceId) {
+
+        return paymentService.getPaymentsByInvoice(invoiceId);
+    }
+
     @DeleteMapping("/{id}")
-    public String deletePayment(@PathVariable Long id) {
+    public String deletePayment(
+            @PathVariable Long id) {
 
         return paymentService.deletePayment(id);
     }

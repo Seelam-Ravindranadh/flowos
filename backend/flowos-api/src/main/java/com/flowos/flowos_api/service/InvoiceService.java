@@ -35,7 +35,7 @@ public class InvoiceService {
     /**
      * Create Invoice
      */
-    public InvoiceResponse createInvoice(
+     /* public InvoiceResponse createInvoice(
             CreateInvoiceRequest request
     ) {
 
@@ -104,7 +104,69 @@ public class InvoiceService {
 
         return mapToResponse(savedInvoice);
     }
+            */
 
+
+    public InvoiceResponse createInvoice(CreateInvoiceRequest request) {
+
+        log.info("Creating Invoice : {}", request.getInvoiceNumber());
+
+        if (invoiceRepository.existsByInvoiceNumber(
+                request.getInvoiceNumber())) {
+
+            throw new BadRequestException(
+                    "Invoice Number already exists.");
+        }
+
+        Customer customer = customerRepository.findById(request.getCustomerId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Customer not found with id : "
+                                        + request.getCustomerId()));
+
+        Vendor vendor = vendorRepository.findById(request.getVendorId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Vendor not found with id : "
+                                        + request.getVendorId()));
+
+        BigDecimal amount = request.getAmount();
+        BigDecimal tax = request.getTax();
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Invoice amount must be greater than or equal to zero.");
+        }
+
+        if (tax == null || tax.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Tax must be greater than or equal to zero.");
+        }
+
+        BigDecimal totalAmount = amount.add(tax);
+
+        Invoice invoice = new Invoice();
+
+        invoice.setInvoiceNumber(request.getInvoiceNumber());
+        invoice.setCustomer(customer);
+        invoice.setVendor(vendor);
+        invoice.setInvoiceDate(request.getInvoiceDate());
+        invoice.setDueDate(request.getDueDate());
+        invoice.setAmount(amount);
+        invoice.setTax(tax);
+        invoice.setTotalAmount(totalAmount);
+
+        invoice.setPaidAmount(BigDecimal.ZERO);
+        invoice.setOutstandingAmount(totalAmount);
+
+        invoice.setStatus(InvoiceStatus.DRAFT);
+        invoice.setNotes(request.getNotes());
+
+        Invoice savedInvoice = invoiceRepository.save(invoice);
+
+        log.info("Invoice Created Successfully : {}",
+                savedInvoice.getInvoiceNumber());
+
+        return mapToResponse(savedInvoice);
+    }
     /**
      * Entity -> DTO
      */
