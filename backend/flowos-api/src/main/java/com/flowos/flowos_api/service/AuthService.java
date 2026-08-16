@@ -141,5 +141,21 @@ public class AuthService {
         }
     }
 
+    public void resetPassword(String email, String newPassword) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found"));
+
+        String encodedPassword =
+                passwordEncoder.encode(newPassword);
+
+        user.setPassword(encodedPassword);
+
+        userRepository.save(user);
+
+        log.info("Password reset successfully for: {}", email);
+    }
+
 
 }

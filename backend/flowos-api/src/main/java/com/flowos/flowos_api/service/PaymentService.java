@@ -117,7 +117,7 @@ public class PaymentService {
         return mapToResponse(savedPayment);
     }
        */
-
+/*
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
@@ -216,6 +216,104 @@ public class PaymentService {
         // 12. Save invoice
         invoiceRepository.save(invoice);
 
+        return mapToResponse(savedPayment);
+    } */
+    @Transactional
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
+
+        // 1. Validate payment number
+        if (paymentRepository.existsByPaymentNumber(
+                request.getPaymentNumber())) {
+
+            throw new BadRequestException(
+                    "Payment number already exists.");
+        }
+
+        // 2. Validate payment amount
+        validatePaymentAmount(request.getAmount());
+
+        // 3. Find invoice
+        Invoice invoice = invoiceRepository.findById(
+                request.getInvoiceId()
+        ).orElseThrow(() ->
+                new ResourceNotFoundException(
+                        "Invoice not found with id : "
+                                + request.getInvoiceId()));
+
+        // 4. Validate invoice total
+        if (invoice.getTotalAmount() == null) {
+
+            throw new BadRequestException(
+                    "Invoice total amount is not available.");
+        }
+
+        // 5. Current paid amount
+        BigDecimal currentPaidAmount =
+                invoice.getPaidAmount() != null
+                        ? invoice.getPaidAmount()
+                        : BigDecimal.ZERO;
+
+        // 6. Calculate current outstanding
+        BigDecimal currentOutstanding =
+                invoice.getTotalAmount()
+                        .subtract(currentPaidAmount);
+
+        // 7. Validate invoice data
+        if (currentOutstanding.compareTo(BigDecimal.ZERO) < 0) {
+
+            throw new BadRequestException(
+                    "Invoice has invalid outstanding amount.");
+        }
+
+        // 8. Prevent overpayment
+        if (request.getAmount()
+                .compareTo(currentOutstanding) > 0) {
+
+            throw new BadRequestException(
+                    "Payment amount cannot exceed "
+                            + "invoice outstanding amount. "
+                            + "Outstanding amount: "
+                            + currentOutstanding);
+        }
+
+        // 9. Payment date
+        LocalDate paymentDate =
+                request.getPaymentDate() != null
+                        ? request.getPaymentDate()
+                        : LocalDate.now();
+
+        // 10. Create payment
+        Payment payment = Payment.builder()
+                .paymentNumber(request.getPaymentNumber())
+                .invoice(invoice)
+                .amount(request.getAmount())
+                .paymentMethod(request.getPaymentMethod())
+                .paymentDate(paymentDate)
+                .transactionReference(
+                        request.getTransactionReference())
+                .remarks(request.getRemarks())
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        // 11. Save payment
+        Payment savedPayment =
+                paymentRepository.save(payment);
+
+        // 12. Calculate new paid amount
+        BigDecimal newPaidAmount =
+                currentPaidAmount
+                        .add(request.getAmount());
+
+        // 13. Update invoice atomically
+        updateInvoiceAmountsAndStatus(
+                invoice,
+                newPaidAmount,
+                paymentDate);
+
+        // 14. Save invoice
+        invoiceRepository.save(invoice);
+
+        // 15. Return response
         return mapToResponse(savedPayment);
     }
     /**

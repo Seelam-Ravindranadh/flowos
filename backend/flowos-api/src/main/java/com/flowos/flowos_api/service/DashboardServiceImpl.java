@@ -79,52 +79,108 @@ public class DashboardServiceImpl implements DashboardService {
         Company company = companyRepository.findAll()
                 .stream()
                 .findFirst()
-                .orElse(null);
+                .orElse(new Company());
 
-        List<Invoice> invoices = invoiceRepository.findAll();
+        /*
+         * P0.5 - Fetch only invoices which still
+         * have an outstanding balance.
+         */
+        List<Invoice> receivableInvoices =
+                invoiceRepository.findByOutstandingAmountGreaterThan(
+                        BigDecimal.ZERO
+                );
 
-        List<Expense> expenses = expenseRepository.findAll();
+        /*
+         * Total Revenue
+         */
+        BigDecimal totalRevenue =
+                invoiceRepository.findAll()
+                        .stream()
+                        .map(Invoice::getTotalAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(
+                                BigDecimal.ZERO,
+                                BigDecimal::add
+                        );
 
-        BigDecimal totalRevenue = invoices.stream()
-                .map(Invoice::getTotalAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        /*
+         * Total Receivables
+         */
+        BigDecimal totalReceivables =
+                receivableInvoices
+                        .stream()
+                        .map(Invoice::getOutstandingAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(
+                                BigDecimal.ZERO,
+                                BigDecimal::add
+                        );
 
-        BigDecimal totalReceivables = invoices.stream()
-                .map(Invoice::getOutstandingAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        /*
+         * Total Payables
+         */
+        BigDecimal totalPayables =
+                expenseRepository.findAll()
+                        .stream()
+                        .map(Expense::getAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(
+                                BigDecimal.ZERO,
+                                BigDecimal::add
+                        );
 
-        BigDecimal totalPayables = expenses.stream()
-                .map(Expense::getAmount)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        /*
+         * Overdue invoices
+         *
+         * Only invoices with:
+         * outstandingAmount > 0
+         * AND dueDate < today
+         */
+        long overdueInvoices =
+                receivableInvoices
+                        .stream()
+                        .filter(invoice ->
+                                invoice.getDueDate() != null)
+                        .filter(invoice ->
+                                invoice.getDueDate()
+                                        .isBefore(LocalDate.now()))
+                        .count();
 
-        int overdueInvoices = (int) invoices.stream()
-                .filter(this::isOverdue)
-                .count();
+        /*
+         * Safe company values
+         */
+        BigDecimal cashBalance =
+                company.getCashBalance() != null
+                        ? company.getCashBalance()
+                        : BigDecimal.ZERO;
 
-        double cashBalance = 0.0;
-
-        if (company != null && company.getCashBalance() != null) {
-            cashBalance = company.getCashBalance().doubleValue();
-        }
-
-        int creditScore = 0;
-
-        if (company != null && company.getCreditScore() != null) {
-            creditScore = company.getCreditScore();
-        }
+        Integer creditScore =
+                company.getCreditScore() != null
+                        ? company.getCreditScore()
+                        : 0;
 
         return DashboardSummaryDTO.builder()
-                .totalRevenue(totalRevenue.doubleValue())
-                .cashBalance(cashBalance)
-                .totalReceivables(totalReceivables.doubleValue())
-                .totalPayables(totalPayables.doubleValue())
-                .creditScore(creditScore)
-                .overdueInvoices(overdueInvoices)
+                .totalRevenue(
+                        totalRevenue.doubleValue())
+
+                .cashBalance(
+                        cashBalance.doubleValue())
+
+                .totalReceivables(
+                        totalReceivables.doubleValue())
+
+                .totalPayables(
+                        totalPayables.doubleValue())
+
+                .creditScore(
+                        creditScore)
+
+                .overdueInvoices(
+                        (int) overdueInvoices)
+
                 .revenueGrowth(0.0)
                 .expenseGrowth(0.0)
+
                 .build();
     }
 
