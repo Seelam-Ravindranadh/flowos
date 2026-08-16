@@ -35,4 +35,6 @@ public interface InvoiceRepository
      */
     List<Invoice> findByOutstandingAmountGreaterThan(
             BigDecimal amount);
+
+
 }

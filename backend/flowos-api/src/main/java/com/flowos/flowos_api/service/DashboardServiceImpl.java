@@ -359,12 +359,14 @@ public class DashboardServiceImpl implements DashboardService {
      * 6. RECEIVABLE AGING
      * ---------------------------------------------------------
      */
-    private List<ReceivableAgingDTO> buildReceivableAging() {
+    /*private List<ReceivableAgingDTO> buildReceivableAging() {
 
         LocalDate today = LocalDate.now();
 
         List<Invoice> invoices =
-                invoiceRepository.findAll();
+                invoiceRepository.findByOutstandingAmountGreaterThan(
+                        BigDecimal.ZERO
+                );
 
         long zeroToThirtyCount = 0;
         long thirtyOneToSixtyCount = 0;
@@ -385,10 +387,7 @@ public class DashboardServiceImpl implements DashboardService {
             BigDecimal outstanding =
                     invoice.getOutstandingAmount();
 
-            if (outstanding == null ||
-                    outstanding.compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
-            }
+
 
             long daysOverdue =
                     java.time.temporal.ChronoUnit.DAYS.between(
@@ -396,9 +395,9 @@ public class DashboardServiceImpl implements DashboardService {
                             today
                     );
 
-            /*
-             * Not overdue yet.
-             */
+            //*
+            // * Not overdue yet.
+
             if (daysOverdue < 0) {
                 continue;
             }
@@ -457,6 +456,131 @@ public class DashboardServiceImpl implements DashboardService {
                         .agingBucket("90+ Days")
                         .amount(overNinetyAmount.doubleValue())
                         .invoiceCount((int) overNinetyCount)
+                        .build()
+        );
+    }    */
+
+    private List<ReceivableAgingDTO> buildReceivableAging() {
+
+        LocalDate today = LocalDate.now();
+
+        /*
+         * Only invoices with an outstanding balance
+         * are receivables.
+         */
+        List<Invoice> invoices =
+                invoiceRepository.findByOutstandingAmountGreaterThan(
+                        BigDecimal.ZERO
+                );
+
+        int zeroToThirtyCount = 0;
+        int thirtyOneToSixtyCount = 0;
+        int sixtyOneToNinetyCount = 0;
+        int overNinetyCount = 0;
+
+        BigDecimal zeroToThirtyAmount = BigDecimal.ZERO;
+        BigDecimal thirtyOneToSixtyAmount = BigDecimal.ZERO;
+        BigDecimal sixtyOneToNinetyAmount = BigDecimal.ZERO;
+        BigDecimal overNinetyAmount = BigDecimal.ZERO;
+
+        for (Invoice invoice : invoices) {
+
+            if (invoice.getDueDate() == null) {
+                continue;
+            }
+
+            BigDecimal outstanding =
+                    invoice.getOutstandingAmount();
+
+            if (outstanding == null ||
+                    outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            long daysOverdue =
+                    java.time.temporal.ChronoUnit.DAYS.between(
+                            invoice.getDueDate(),
+                            today
+                    );
+
+            /*
+             * Current invoices and invoices overdue
+             * up to 30 days.
+             *
+             * Negative value means the invoice is
+             * not due yet, so it still belongs to
+             * the current 0-30 bucket.
+             */
+            if (daysOverdue <= 30) {
+
+                zeroToThirtyCount++;
+
+                zeroToThirtyAmount =
+                        zeroToThirtyAmount.add(outstanding);
+
+            } else if (daysOverdue <= 60) {
+
+                thirtyOneToSixtyCount++;
+
+                thirtyOneToSixtyAmount =
+                        thirtyOneToSixtyAmount.add(outstanding);
+
+            } else if (daysOverdue <= 90) {
+
+                sixtyOneToNinetyCount++;
+
+                sixtyOneToNinetyAmount =
+                        sixtyOneToNinetyAmount.add(outstanding);
+
+            } else {
+
+                overNinetyCount++;
+
+                overNinetyAmount =
+                        overNinetyAmount.add(outstanding);
+            }
+        }
+
+        return List.of(
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("0-30 Days")
+                        .amount(
+                                zeroToThirtyAmount.doubleValue()
+                        )
+                        .invoiceCount(
+                                zeroToThirtyCount
+                        )
+                        .build(),
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("31-60 Days")
+                        .amount(
+                                thirtyOneToSixtyAmount.doubleValue()
+                        )
+                        .invoiceCount(
+                                thirtyOneToSixtyCount
+                        )
+                        .build(),
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("61-90 Days")
+                        .amount(
+                                sixtyOneToNinetyAmount.doubleValue()
+                        )
+                        .invoiceCount(
+                                sixtyOneToNinetyCount
+                        )
+                        .build(),
+
+                ReceivableAgingDTO.builder()
+                        .agingBucket("90+ Days")
+                        .amount(
+                                overNinetyAmount.doubleValue()
+                        )
+                        .invoiceCount(
+                                overNinetyCount
+                        )
                         .build()
         );
     }
