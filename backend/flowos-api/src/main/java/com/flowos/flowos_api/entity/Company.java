@@ -52,16 +52,47 @@ public class Company {
 
     private Integer employeeCount;
 
-    @Column(precision = 18, scale = 2)
+    @Column(
+            precision = 18,
+            scale = 2
+    )
     private BigDecimal annualRevenue;
 
-    @Column(precision = 18, scale = 2)
+    @Column(
+            precision = 18,
+            scale = 2
+    )
     private BigDecimal totalAssets;
 
-    @Column(precision = 18, scale = 2)
+    @Column(
+            precision = 18,
+            scale = 2
+    )
     private BigDecimal totalLiabilities;
 
-    @Column(precision = 18, scale = 2)
+    /**
+     * P0.6
+     *
+     * Opening cash balance used as the
+     * starting point for cash reconciliation.
+     */
+    @Column(
+            precision = 18,
+            scale = 2
+    )
+    private BigDecimal openingCashBalance;
+
+    /**
+     * Current cash balance.
+     *
+     * This can be retained for compatibility,
+     * but DashboardService will calculate the
+     * current balance from transactions.
+     */
+    @Column(
+            precision = 18,
+            scale = 2
+    )
     private BigDecimal cashBalance;
 
     private Integer creditScore;

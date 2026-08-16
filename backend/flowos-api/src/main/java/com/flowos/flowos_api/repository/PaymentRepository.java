@@ -9,26 +9,34 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PaymentRepository extends JpaRepository<Payment, Long> {
+public interface PaymentRepository
+        extends JpaRepository<Payment, Long> {
 
     /**
-     * Find Payment by Payment Number
+     * Find payment by payment number.
      */
-    Optional<Payment> findByPaymentNumber(String paymentNumber);
+    Optional<Payment> findByPaymentNumber(
+            String paymentNumber
+    );
 
     /**
-     * Check Payment Number Exists
+     * Check whether payment number already exists.
      */
-    boolean existsByPaymentNumber(String paymentNumber);
+    boolean existsByPaymentNumber(
+            String paymentNumber
+    );
 
     /**
-     * Find Payments by Status
+     * Find payments by status.
      */
-    List<Payment> findByStatus(PaymentStatus status);
+    List<Payment> findByStatus(
+            PaymentStatus status
+    );
 
     /**
-     * Find Payments by Invoice Id
+     * Find payments by invoice.
      */
-    List<Payment> findByInvoiceId(Long invoiceId);
-
+    List<Payment> findByInvoiceId(
+            Long invoiceId
+    );
 }
