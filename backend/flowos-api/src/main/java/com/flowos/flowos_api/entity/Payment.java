@@ -24,6 +24,13 @@ public class Payment {
     @Column(unique = true, nullable = false)
     private String paymentNumber;
 
+    /**
+     * P0.7: Multi-Tenancy - Link Payment to Company
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id")
     private Invoice invoice;
@@ -42,5 +49,4 @@ public class Payment {
     private String transactionReference;
 
     private String remarks;
-
 }

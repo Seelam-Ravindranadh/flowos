@@ -15,46 +15,28 @@ public class Invoice {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * Invoice Number
-     * Example:
-     * INV-2026-0001
-     */
     @Column(nullable = false, unique = true)
     private String invoiceNumber;
 
     /**
-     * Customer
+     * P0.7: Multi-Tenancy - Link Invoice to Company
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "customer_id",
-            nullable = false
-    )
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    /**
-     * Vendor
-     */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "vendor_id",
-            nullable = false
-    )
+    @JoinColumn(name = "vendor_id", nullable = false)
     private Vendor vendor;
 
-    /**
-     * Invoice Dates
-     */
     private LocalDate invoiceDate;
-
     private LocalDate dueDate;
-
     private LocalDate paidDate;
 
-    /**
-     * Amount Details
-     */
     @Column(nullable = false)
     private BigDecimal amount;
 
@@ -70,23 +52,13 @@ public class Invoice {
     @Column(nullable = false)
     private BigDecimal outstandingAmount;
 
-    /**
-     * Status
-     */
     @Enumerated(EnumType.STRING)
     private InvoiceStatus status;
 
-    /**
-     * Notes
-     */
     @Column(length = 1000)
     private String notes;
 
-    /**
-     * Audit Columns
-     */
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
 
     public Invoice() {
@@ -106,6 +78,14 @@ public class Invoice {
 
     public void setInvoiceNumber(String invoiceNumber) {
         this.invoiceNumber = invoiceNumber;
+    }
+
+    public Company getCompany() {
+        return company;
+    }
+
+    public void setCompany(Company company) {
+        this.company = company;
     }
 
     public Customer getCustomer() {
@@ -222,7 +202,6 @@ public class Invoice {
 
     @PrePersist
     public void onCreate() {
-
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
 
@@ -235,19 +214,16 @@ public class Invoice {
         }
 
         if (this.totalAmount != null && this.paidAmount != null) {
-            this.outstandingAmount =
-                    this.totalAmount.subtract(this.paidAmount);
+            this.outstandingAmount = this.totalAmount.subtract(this.paidAmount);
         }
     }
 
     @PreUpdate
     public void onUpdate() {
-
         this.updatedAt = LocalDateTime.now();
 
         if (this.totalAmount != null && this.paidAmount != null) {
-            this.outstandingAmount =
-                    this.totalAmount.subtract(this.paidAmount);
+            this.outstandingAmount = this.totalAmount.subtract(this.paidAmount);
         }
     }
 }
