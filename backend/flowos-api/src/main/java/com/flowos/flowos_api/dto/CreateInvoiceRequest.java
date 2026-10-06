@@ -4,12 +4,18 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Schema(description = "Create Invoice Request")
 public class CreateInvoiceRequest {
 
@@ -21,6 +27,12 @@ public class CreateInvoiceRequest {
     private String invoiceNumber;
 
     @Schema(
+            description = "Company ID (Tenant) - Optional, defaults to primary company",
+            example = "1"
+    )
+    private Long companyId;
+
+    @Schema(
             description = "Customer ID",
             example = "1"
     )
@@ -29,44 +41,49 @@ public class CreateInvoiceRequest {
 
     @Schema(
             description = "Vendor ID",
-            example = "2"
+            example = "1"
     )
     @NotNull(message = "Vendor is required")
     private Long vendorId;
 
     @Schema(
             description = "Invoice Date",
-            example = "2026-07-27"
+            example = "2026-10-06"
     )
     @NotNull(message = "Invoice Date is required")
     private LocalDate invoiceDate;
 
     @Schema(
             description = "Due Date",
-            example = "2026-08-10"
+            example = "2026-11-15"
     )
     @NotNull(message = "Due Date is required")
     private LocalDate dueDate;
 
     @Schema(
-            description = "Invoice Amount",
-            example = "25000"
+            description = "Invoice Base Amount",
+            example = "25000.00"
     )
-    @NotNull
+    @NotNull(message = "Amount is required")
     @Positive(message = "Amount must be greater than zero")
     private BigDecimal amount;
 
     @Schema(
             description = "Tax Amount",
-            example = "4500"
+            example = "4500.00"
     )
-    @NotNull
-    @Positive(message = "Tax must be greater than zero")
+    @NotNull(message = "Tax is required")
     private BigDecimal tax;
 
     @Schema(
+            description = "Total Amount (Base Amount + Tax) - Optional, calculated automatically if omitted",
+            example = "29500.00"
+    )
+    private BigDecimal totalAmount;
+
+    @Schema(
             description = "Additional Notes",
-            example = "Payment due in 15 days"
+            example = "Payment due in 30 days"
     )
     private String notes;
 }

@@ -1,657 +1,296 @@
 package com.flowos.flowos_api.service;
 
-import com.flowos.flowos_api.dto.*;
+import com.flowos.flowos_api.dto.CreatePaymentRequest;
+import com.flowos.flowos_api.dto.PaymentResponse;
+import com.flowos.flowos_api.dto.UpdatePaymentRequest;
+import com.flowos.flowos_api.entity.Company;
 import com.flowos.flowos_api.entity.Invoice;
 import com.flowos.flowos_api.entity.Payment;
 import com.flowos.flowos_api.enums.InvoiceStatus;
 import com.flowos.flowos_api.enums.PaymentStatus;
 import com.flowos.flowos_api.exception.BadRequestException;
 import com.flowos.flowos_api.exception.ResourceNotFoundException;
+import com.flowos.flowos_api.repository.CompanyRepository;
 import com.flowos.flowos_api.repository.InvoiceRepository;
 import com.flowos.flowos_api.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
+    private final CompanyRepository companyRepository;
 
     /**
-     * CREATE PAYMENT
-     *
-     * Payment is recorded against an invoice.
-     * Invoice paidAmount, outstandingAmount and status
-     * are automatically recalculated.
+     * CREATE PAYMENT - P0.8 Lifecycle Engine
+     * 1. Validates payment amount and invoice existence.
+     * 2. Enforces multi-tenancy: assigns the payment to the invoice's company.
+     * 3. Prevents overpayment against invoice outstanding balance.
+     * 4. Updates invoice paidAmount, outstandingAmount, paidDate, and status atomically.
+     * 5. Saves Payment and Invoice within a single transactional boundary.
      */
-    /* @Transactional
-    public PaymentResponse createPayment(CreatePaymentRequest request) {
-
-        // 1. Validate payment number
-        if (paymentRepository.existsByPaymentNumber(
-                request.getPaymentNumber())) {
-
-            throw new BadRequestException(
-                    "Payment number already exists.");
-        }
-
-        // 2. Validate amount
-        validatePaymentAmount(request.getAmount());
-
-        // 3. Find invoice
-        Invoice invoice = invoiceRepository.findById(
-                        request.getInvoiceId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Invoice not found with id : "
-                                        + request.getInvoiceId()));
-
-        // 4. Validate invoice total
-        if (invoice.getTotalAmount() == null) {
-            throw new BadRequestException(
-                    "Invoice total amount is not available.");
-        }
-
-        // 5. Get current paid amount
-        BigDecimal currentPaidAmount =
-                invoice.getPaidAmount() != null
-                        ? invoice.getPaidAmount()
-                        : BigDecimal.ZERO;
-
-        // 6. Calculate current outstanding
-        BigDecimal currentOutstanding =
-                invoice.getTotalAmount()
-                        .subtract(currentPaidAmount);
-
-        if (currentOutstanding.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BadRequestException(
-                    "Invoice has invalid outstanding amount.");
-        }
-
-        // 7. Prevent overpayment
-        if (request.getAmount()
-                .compareTo(currentOutstanding) > 0) {
-
-            throw new BadRequestException(
-                    "Payment amount cannot be greater than "
-                            + "invoice outstanding amount. "
-                            + "Outstanding amount: "
-                            + currentOutstanding);
-        }
-
-        // 8. Create payment
-        Payment payment = Payment.builder()
-                .paymentNumber(request.getPaymentNumber())
-                .invoice(invoice)
-                .amount(request.getAmount())
-                .paymentMethod(request.getPaymentMethod())
-                .paymentDate(
-                        request.getPaymentDate() != null
-                                ? request.getPaymentDate()
-                                : LocalDate.now())
-                .transactionReference(
-                        request.getTransactionReference())
-                .remarks(request.getRemarks())
-                .status(PaymentStatus.SUCCESS)
-                .build();
-
-        // 9. Save payment
-        Payment savedPayment =
-                paymentRepository.save(payment);
-
-        // 10. Update invoice
-        updateInvoiceAfterPayment(
-                invoice,
-                request.getAmount(),
-                savedPayment.getPaymentDate());
-
-        invoiceRepository.save(invoice);
-
-        return mapToResponse(savedPayment);
-    }
-       */
-/*
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest request) {
 
-        // 1. Validate payment number
-        if (request.getPaymentNumber() == null ||
-                request.getPaymentNumber().isBlank()) {
-
-            throw new BadRequestException(
-                    "Payment number is required.");
-        }
-
-        if (paymentRepository.existsByPaymentNumber(
-                request.getPaymentNumber())) {
-
-            throw new BadRequestException(
-                    "Payment number already exists.");
-        }
-
-        // 2. Validate amount
+        // 1. Validate payment amount
         validatePaymentAmount(request.getAmount());
 
-        // 3. Find invoice
-        Invoice invoice = invoiceRepository.findById(
-                        request.getInvoiceId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Invoice not found with id : "
-                                        + request.getInvoiceId()));
+        // 2. Fetch target invoice
+        Invoice invoice = invoiceRepository.findById(request.getInvoiceId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Invoice not found with id: " + request.getInvoiceId()));
 
-        // 4. Validate invoice total
-        if (invoice.getTotalAmount() == null) {
-
-            throw new BadRequestException(
-                    "Invoice total amount is not available.");
+        // 3. Multi-tenancy integrity check
+        Company company = invoice.getCompany();
+        if (company == null) {
+            // Fallback to seeded tenant if invoice was created before foreign key backfill
+            company = companyRepository.findAll().stream().findFirst()
+                    .orElseThrow(() -> new BadRequestException("No company tenant found to bind payment"));
+            invoice.setCompany(company);
         }
 
-        // 5. Calculate current paid amount
-        BigDecimal currentPaidAmount =
-                invoice.getPaidAmount() != null
-                        ? invoice.getPaidAmount()
-                        : BigDecimal.ZERO;
+        if (request.getCompanyId() != null && !request.getCompanyId().equals(company.getId())) {
+            throw new BadRequestException("Supplied company ID (" + request.getCompanyId()
+                    + ") does not match Invoice tenant company ID (" + company.getId() + ")");
+        }
 
-        // 6. Calculate actual outstanding amount
-        BigDecimal currentOutstanding =
-                invoice.getTotalAmount()
-                        .subtract(currentPaidAmount);
+        // 4. Generate or validate unique payment number
+        String paymentNumber = request.getPaymentNumber();
+        if (paymentNumber == null || paymentNumber.isBlank()) {
+            paymentNumber = "PAY-" + System.currentTimeMillis();
+        } else if (paymentRepository.existsByPaymentNumber(paymentNumber)) {
+            throw new BadRequestException("Payment number already exists: " + paymentNumber);
+        }
+
+        // 5. Calculate current financial state of invoice
+        if (invoice.getTotalAmount() == null) {
+            throw new BadRequestException("Invoice total amount is not initialized.");
+        }
+
+        BigDecimal currentPaidAmount = invoice.getPaidAmount() != null
+                ? invoice.getPaidAmount()
+                : BigDecimal.ZERO;
+
+        BigDecimal currentOutstanding = invoice.getOutstandingAmount() != null
+                ? invoice.getOutstandingAmount()
+                : invoice.getTotalAmount().subtract(currentPaidAmount);
 
         if (currentOutstanding.compareTo(BigDecimal.ZERO) < 0) {
-
-            throw new BadRequestException(
-                    "Invoice has invalid outstanding amount.");
+            throw new BadRequestException("Invoice has an invalid negative outstanding amount: " + currentOutstanding);
         }
 
-        // 7. Prevent overpayment
-        if (request.getAmount()
-                .compareTo(currentOutstanding) > 0) {
-
-            throw new BadRequestException(
-                    "Payment amount cannot exceed invoice "
-                            + "outstanding amount. Outstanding amount: "
-                            + currentOutstanding);
+        // 6. Overpayment prevention
+        if (request.getAmount().compareTo(currentOutstanding) > 0) {
+            throw new BadRequestException(String.format(
+                    "Payment amount (%.2f) exceeds invoice outstanding balance (%.2f)",
+                    request.getAmount().doubleValue(), currentOutstanding.doubleValue()));
         }
 
-        // 8. Payment date
-        LocalDate paymentDate =
-                request.getPaymentDate() != null
-                        ? request.getPaymentDate()
-                        : LocalDate.now();
+        // 7. Resolve payment date
+        LocalDate paymentDate = request.getPaymentDate() != null
+                ? request.getPaymentDate()
+                : LocalDate.now();
 
-        // 9. Create payment
+        // 8. Build and persist Payment entity
         Payment payment = Payment.builder()
-                .paymentNumber(request.getPaymentNumber())
+                .paymentNumber(paymentNumber)
+                .company(company)
                 .invoice(invoice)
                 .amount(request.getAmount())
                 .paymentMethod(request.getPaymentMethod())
-                .paymentDate(paymentDate)
-                .transactionReference(
-                        request.getTransactionReference())
-                .remarks(request.getRemarks())
                 .status(PaymentStatus.SUCCESS)
+                .paymentDate(paymentDate)
+                .transactionReference(request.getTransactionReference() != null && !request.getTransactionReference().isBlank()
+                        ? request.getTransactionReference()
+                        : "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .remarks(request.getRemarks())
                 .build();
 
-        // 10. Save payment
-        Payment savedPayment =
-                paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
 
-        // 11. Recalculate invoice
-        BigDecimal newPaidAmount =
-                currentPaidAmount.add(request.getAmount());
-
-        updateInvoiceAmountsAndStatus(
-                invoice,
-                newPaidAmount,
-                paymentDate);
-
-        // 12. Save invoice
+        // 9. Atomically recalculate and persist Invoice state
+        BigDecimal newPaidAmount = currentPaidAmount.add(request.getAmount());
+        updateInvoiceAmountsAndStatus(invoice, newPaidAmount, paymentDate);
         invoiceRepository.save(invoice);
 
-        return mapToResponse(savedPayment);
-    } */
-    @Transactional
-    public PaymentResponse createPayment(CreatePaymentRequest request) {
+        log.info("Payment {} processed: Amount {}, Invoice {}, Status {}",
+                savedPayment.getPaymentNumber(), savedPayment.getAmount(),
+                invoice.getInvoiceNumber(), invoice.getStatus());
 
-        // 1. Validate payment number
-        if (paymentRepository.existsByPaymentNumber(
-                request.getPaymentNumber())) {
-
-            throw new BadRequestException(
-                    "Payment number already exists.");
-        }
-
-        // 2. Validate payment amount
-        validatePaymentAmount(request.getAmount());
-
-        // 3. Find invoice
-        Invoice invoice = invoiceRepository.findById(
-                request.getInvoiceId()
-        ).orElseThrow(() ->
-                new ResourceNotFoundException(
-                        "Invoice not found with id : "
-                                + request.getInvoiceId()));
-
-        // 4. Validate invoice total
-        if (invoice.getTotalAmount() == null) {
-
-            throw new BadRequestException(
-                    "Invoice total amount is not available.");
-        }
-
-        // 5. Current paid amount
-        BigDecimal currentPaidAmount =
-                invoice.getPaidAmount() != null
-                        ? invoice.getPaidAmount()
-                        : BigDecimal.ZERO;
-
-        // 6. Calculate current outstanding
-        BigDecimal currentOutstanding =
-                invoice.getTotalAmount()
-                        .subtract(currentPaidAmount);
-
-        // 7. Validate invoice data
-        if (currentOutstanding.compareTo(BigDecimal.ZERO) < 0) {
-
-            throw new BadRequestException(
-                    "Invoice has invalid outstanding amount.");
-        }
-
-        // 8. Prevent overpayment
-        if (request.getAmount()
-                .compareTo(currentOutstanding) > 0) {
-
-            throw new BadRequestException(
-                    "Payment amount cannot exceed "
-                            + "invoice outstanding amount. "
-                            + "Outstanding amount: "
-                            + currentOutstanding);
-        }
-
-        // 9. Payment date
-        LocalDate paymentDate =
-                request.getPaymentDate() != null
-                        ? request.getPaymentDate()
-                        : LocalDate.now();
-
-        // 10. Create payment
-        Payment payment = Payment.builder()
-                .paymentNumber(request.getPaymentNumber())
-                .invoice(invoice)
-                .amount(request.getAmount())
-                .paymentMethod(request.getPaymentMethod())
-                .paymentDate(paymentDate)
-                .transactionReference(
-                        request.getTransactionReference())
-                .remarks(request.getRemarks())
-                .status(PaymentStatus.SUCCESS)
-                .build();
-
-        // 11. Save payment
-        Payment savedPayment =
-                paymentRepository.save(payment);
-
-        // 12. Calculate new paid amount
-        BigDecimal newPaidAmount =
-                currentPaidAmount
-                        .add(request.getAmount());
-
-        // 13. Update invoice atomically
-        updateInvoiceAmountsAndStatus(
-                invoice,
-                newPaidAmount,
-                paymentDate);
-
-        // 14. Save invoice
-        invoiceRepository.save(invoice);
-
-        // 15. Return response
         return mapToResponse(savedPayment);
     }
+
     /**
      * UPDATE PAYMENT
-     *
-     * Important:
-     * The old payment amount is first removed from the invoice
-     * and the new payment amount is then applied.
+     * Replaces previous payment value, rolling back its impact on the invoice before applying new amount.
      */
     @Transactional
-    public PaymentResponse updatePayment(
-            Long id,
-            UpdatePaymentRequest request) {
+    public PaymentResponse updatePayment(Long id, UpdatePaymentRequest request) {
 
         Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found with id : "
-                                        + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
 
         validatePaymentAmount(request.getAmount());
 
         Invoice invoice = payment.getInvoice();
-
-        BigDecimal oldPaymentAmount =
-                payment.getAmount() != null
-                        ? payment.getAmount()
-                        : BigDecimal.ZERO;
-
-        BigDecimal currentPaidAmount =
-                invoice.getPaidAmount() != null
-                        ? invoice.getPaidAmount()
-                        : BigDecimal.ZERO;
-
-        /*
-         * Remove old payment from invoice.
-         */
-        BigDecimal paidAfterRemovingOldPayment =
-                currentPaidAmount.subtract(
-                        oldPaymentAmount);
-
-        if (paidAfterRemovingOldPayment
-                .compareTo(BigDecimal.ZERO) < 0) {
-
-            paidAfterRemovingOldPayment =
-                    BigDecimal.ZERO;
+        if (invoice == null) {
+            throw new BadRequestException("Payment is not bound to a valid invoice");
         }
 
-        /*
-         * Calculate available outstanding after
-         * removing old payment.
-         */
-        BigDecimal availableOutstanding =
-                invoice.getTotalAmount()
-                        .subtract(
-                                paidAfterRemovingOldPayment);
+        BigDecimal oldPaymentAmount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+        BigDecimal currentPaidAmount = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
 
-        /*
-         * Prevent overpayment.
-         */
-        if (request.getAmount()
-                .compareTo(availableOutstanding) > 0) {
-
-            throw new BadRequestException(
-                    "Updated payment amount cannot be "
-                            + "greater than invoice outstanding amount. "
-                            + "Available amount: "
-                            + availableOutstanding);
+        BigDecimal paidAfterRollback = currentPaidAmount.subtract(oldPaymentAmount);
+        if (paidAfterRollback.compareTo(BigDecimal.ZERO) < 0) {
+            paidAfterRollback = BigDecimal.ZERO;
         }
 
-        /*
-         * Update payment.
-         */
+        BigDecimal availableOutstanding = invoice.getTotalAmount().subtract(paidAfterRollback);
+
+        if (request.getAmount().compareTo(availableOutstanding) > 0) {
+            throw new BadRequestException("Updated payment amount (" + request.getAmount()
+                    + ") exceeds available invoice outstanding balance (" + availableOutstanding + ")");
+        }
+
         payment.setAmount(request.getAmount());
-        payment.setPaymentMethod(
-                request.getPaymentMethod());
+        payment.setPaymentMethod(request.getPaymentMethod());
         payment.setStatus(request.getStatus());
-        payment.setPaymentDate(
-                request.getPaymentDate());
-        payment.setTransactionReference(
-                request.getTransactionReference());
-        payment.setRemarks(
-                request.getRemarks());
+        payment.setPaymentDate(request.getPaymentDate() != null ? request.getPaymentDate() : LocalDate.now());
+        payment.setTransactionReference(request.getTransactionReference());
+        payment.setRemarks(request.getRemarks());
 
-        Payment updatedPayment =
-                paymentRepository.save(payment);
+        Payment updatedPayment = paymentRepository.save(payment);
 
-        /*
-         * Recalculate invoice.
-         */
-        BigDecimal newPaidAmount =
-                paidAfterRemovingOldPayment
-                        .add(request.getAmount());
-
-        updateInvoiceAmountsAndStatus(
-                invoice,
-                newPaidAmount,
-                request.getPaymentDate());
-
+        BigDecimal newPaidAmount = paidAfterRollback.add(request.getAmount());
+        updateInvoiceAmountsAndStatus(invoice, newPaidAmount, updatedPayment.getPaymentDate());
         invoiceRepository.save(invoice);
 
         return mapToResponse(updatedPayment);
     }
 
-    /**
-     * GET PAYMENT
-     */
+    @Transactional(readOnly = true)
     public PaymentResponse getPayment(Long id) {
-
         Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found with id : "
-                                        + id));
-
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
         return mapToResponse(payment);
     }
 
-    /**
-     * GET ALL PAYMENTS
-     */
+    @Transactional(readOnly = true)
     public List<PaymentResponse> getAllPayments() {
-
-        return paymentRepository.findAll()
-                .stream()
+        return paymentRepository.findAll().stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
-    /**
-     * GET PAYMENTS BY STATUS
-     */
-    public List<PaymentResponse> getPaymentsByStatus(
-            PaymentStatus status) {
-
-        return paymentRepository
-                .findByStatus(status)
-                .stream()
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPaymentsByCompany(Long companyId) {
+        return paymentRepository.findByCompanyIdAndStatus(companyId, PaymentStatus.SUCCESS).stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
-    /**
-     * GET PAYMENTS BY INVOICE
-     */
-    public List<PaymentResponse> getPaymentsByInvoice(
-            Long invoiceId) {
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPaymentsByStatus(PaymentStatus status) {
+        return paymentRepository.findByStatus(status).stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
 
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPaymentsByInvoice(Long invoiceId) {
         if (!invoiceRepository.existsById(invoiceId)) {
-
-            throw new ResourceNotFoundException(
-                    "Invoice not found with id : "
-                            + invoiceId);
+            throw new ResourceNotFoundException("Invoice not found with id: " + invoiceId);
         }
-
-        return paymentRepository
-                .findByInvoiceId(invoiceId)
-                .stream()
+        return paymentRepository.findByInvoiceId(invoiceId).stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
-    /**
-     * DELETE PAYMENT
-     *
-     * When a payment is deleted, the invoice is recalculated.
-     */
     @Transactional
     public String deletePayment(Long id) {
-
         Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Payment not found with id : "
-                                        + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found with id: " + id));
 
         Invoice invoice = payment.getInvoice();
+        BigDecimal paymentAmount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+        BigDecimal currentPaidAmount = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : BigDecimal.ZERO;
 
-        BigDecimal paymentAmount =
-                payment.getAmount() != null
-                        ? payment.getAmount()
-                        : BigDecimal.ZERO;
-
-        BigDecimal currentPaidAmount =
-                invoice.getPaidAmount() != null
-                        ? invoice.getPaidAmount()
-                        : BigDecimal.ZERO;
-
-        /*
-         * Remove deleted payment.
-         */
-        BigDecimal newPaidAmount =
-                currentPaidAmount
-                        .subtract(paymentAmount);
-
+        BigDecimal newPaidAmount = currentPaidAmount.subtract(paymentAmount);
         if (newPaidAmount.compareTo(BigDecimal.ZERO) < 0) {
             newPaidAmount = BigDecimal.ZERO;
         }
 
         paymentRepository.delete(payment);
-
-        /*
-         * Recalculate invoice.
-         */
-        updateInvoiceAmountsAndStatus(
-                invoice,
-                newPaidAmount,
-                null);
-
+        updateInvoiceAmountsAndStatus(invoice, newPaidAmount, null);
         invoiceRepository.save(invoice);
 
         return "Payment deleted successfully.";
     }
 
-    /**
-     * Update invoice after creating a payment.
-     */
-    private void updateInvoiceAfterPayment(
-            Invoice invoice,
-            BigDecimal paymentAmount,
-            LocalDate paymentDate) {
-
-        BigDecimal currentPaidAmount =
-                invoice.getPaidAmount() != null
-                        ? invoice.getPaidAmount()
-                        : BigDecimal.ZERO;
-
-        BigDecimal newPaidAmount =
-                currentPaidAmount
-                        .add(paymentAmount);
-
-        updateInvoiceAmountsAndStatus(
-                invoice,
-                newPaidAmount,
-                paymentDate);
-    }
-
-    /**
-     * Recalculate invoice financial values.
-     */
-    private void updateInvoiceAmountsAndStatus(
-            Invoice invoice,
-            BigDecimal paidAmount,
-            LocalDate paymentDate) {
-
-        if (invoice.getTotalAmount() == null) {
-            throw new BadRequestException(
-                    "Invoice total amount is not available.");
-        }
-
-        if (paidAmount == null ||
-                paidAmount.compareTo(BigDecimal.ZERO) < 0) {
-
-            throw new BadRequestException(
-                    "Paid amount cannot be negative.");
-        }
-
-        BigDecimal totalAmount =
-                invoice.getTotalAmount();
-
-        BigDecimal outstandingAmount =
-                totalAmount.subtract(paidAmount);
+    private void updateInvoiceAmountsAndStatus(Invoice invoice, BigDecimal paidAmount, LocalDate paymentDate) {
+        BigDecimal totalAmount = invoice.getTotalAmount();
+        BigDecimal outstandingAmount = totalAmount.subtract(paidAmount);
 
         if (outstandingAmount.compareTo(BigDecimal.ZERO) < 0) {
-
-            throw new BadRequestException(
-                    "Outstanding amount cannot be negative.");
+            throw new BadRequestException("Calculated outstanding balance cannot be negative.");
         }
 
         invoice.setPaidAmount(paidAmount);
         invoice.setOutstandingAmount(outstandingAmount);
 
-        // Fully paid
         if (outstandingAmount.compareTo(BigDecimal.ZERO) == 0) {
-
             invoice.setStatus(InvoiceStatus.PAID);
             invoice.setPaidDate(paymentDate);
-
-            // Partially paid
         } else if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
-
             invoice.setStatus(InvoiceStatus.PARTIALLY_PAID);
             invoice.setPaidDate(null);
-
-            // Not paid
         } else {
-
             if (invoice.getStatus() != InvoiceStatus.CANCELLED) {
                 invoice.setStatus(InvoiceStatus.SENT);
             }
-
             invoice.setPaidDate(null);
         }
     }
 
-    /**
-     * Validate payment amount.
-     */
-    private void validatePaymentAmount(
-            BigDecimal amount) {
-
+    private void validatePaymentAmount(BigDecimal amount) {
         if (amount == null) {
-
-            throw new BadRequestException(
-                    "Payment amount is required.");
+            throw new BadRequestException("Payment amount is required.");
         }
-
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-
-            throw new BadRequestException(
-                    "Payment amount must be greater than zero.");
+            throw new BadRequestException("Payment amount must be greater than zero.");
         }
     }
 
-    /**
-     * Entity -> DTO
-     */
-    private PaymentResponse mapToResponse(
-            Payment payment) {
-
+    private PaymentResponse mapToResponse(Payment payment) {
+        Invoice invoice = payment.getInvoice();
         return PaymentResponse.builder()
                 .id(payment.getId())
-                .paymentNumber(
-                        payment.getPaymentNumber())
-                .invoiceId(
-                        payment.getInvoice().getId())
-                .invoiceNumber(
-                        payment.getInvoice()
-                                .getInvoiceNumber())
+                .companyId(payment.getCompany() != null ? payment.getCompany().getId() : null)
+                .paymentNumber(payment.getPaymentNumber())
+                .invoiceId(invoice != null ? invoice.getId() : null)
+                .invoiceNumber(invoice != null ? invoice.getInvoiceNumber() : null)
                 .amount(payment.getAmount())
-                .paymentMethod(
-                        payment.getPaymentMethod())
+                .paymentMethod(payment.getPaymentMethod())
                 .status(payment.getStatus())
-                .paymentDate(
-                        payment.getPaymentDate())
-                .transactionReference(
-                        payment.getTransactionReference())
+                .paymentDate(payment.getPaymentDate())
+                .transactionReference(payment.getTransactionReference())
                 .remarks(payment.getRemarks())
+                .invoiceTotalAmount(invoice != null ? invoice.getTotalAmount() : null)
+                .invoicePaidAmount(invoice != null ? invoice.getPaidAmount() : null)
+                .invoiceOutstandingAmount(invoice != null ? invoice.getOutstandingAmount() : null)
+                .invoiceStatus(invoice != null ? invoice.getStatus() : null)
                 .build();
     }
 }

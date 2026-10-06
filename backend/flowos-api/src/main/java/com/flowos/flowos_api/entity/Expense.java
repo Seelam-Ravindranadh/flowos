@@ -22,6 +22,9 @@ public class Expense {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "expense_number")
+    private String expenseNumber;
+
     @Column(nullable = false)
     private String expenseName;
 
@@ -41,13 +44,37 @@ public class Expense {
     private String description;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private ExpenseStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id")
+    @JoinColumn(name = "company_id", nullable = false)
     private Company company;
+
+    @Column(name = "approved_by")
+    private String approvedBy;
+
+    @Column(name = "approval_date")
+    private LocalDate approvalDate;
+
+    @Column(name = "rejection_reason", length = 1000)
+    private String rejectionReason;
 
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+        if (this.status == null) {
+            this.status = ExpenseStatus.PENDING;
+        }
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
