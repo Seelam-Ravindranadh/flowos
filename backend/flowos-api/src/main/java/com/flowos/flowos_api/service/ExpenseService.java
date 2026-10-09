@@ -33,7 +33,7 @@ public class ExpenseService {
     /**
      * Create Expense - P0.9 Enforces PENDING Status & Tenant Binding
      */
-    @Transactional
+   /* @Transactional
     public ExpenseResponse createExpense(CreateExpenseRequest request) {
 
         Company company;
@@ -64,8 +64,33 @@ public class ExpenseService {
         Expense savedExpense = expenseRepository.save(expense);
         log.info("Created Expense {} in PENDING state for Company {}", savedExpense.getExpenseNumber(), company.getCompanyName());
         return mapToResponse(savedExpense);
-    }
+    }  */
 
+    @Transactional
+    public ExpenseResponse createExpense(CreateExpenseRequest request) {
+
+        Company company = companyRepository.findAll().stream()
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("No registered company tenant found."));
+
+        String expenseNumber = (request.getExpenseNumber() != null && !request.getExpenseNumber().isBlank())
+                ? request.getExpenseNumber()
+                : "EXP-" + System.currentTimeMillis();
+
+        Expense expense = new Expense();
+        expense.setExpenseNumber(expenseNumber);
+        expense.setExpenseName(request.getExpenseName());
+        expense.setCategory(request.getCategory());
+        expense.setExpenseDate(request.getExpenseDate() != null ? request.getExpenseDate() : LocalDate.now());
+        expense.setAmount(request.getAmount());
+        expense.setVendorName(request.getVendorName());
+        expense.setDescription(request.getDescription());
+        expense.setCompany(company);              // <-- Required non-null tenant FK
+        expense.setStatus(ExpenseStatus.PENDING); // <-- Enters PENDING approval gate
+
+        Expense saved = expenseRepository.save(expense);
+        return mapToResponse(saved);
+    }
     /**
      * Approve Expense - Recognizes cash outflow in ledger
      */

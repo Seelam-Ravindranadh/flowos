@@ -28,6 +28,8 @@ public enum ExpenseCategory {
 
     TRAINING,
 
+    SOFTWARE,
+
     LOGISTICS,
 
     OTHER

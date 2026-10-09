@@ -1,4 +1,4 @@
-package com.flowos.flowos_api.service;
+package com.flowos.flowos_api.service.impl;
 
 import com.flowos.flowos_api.dto.*;
 import com.flowos.flowos_api.entity.Company;
@@ -55,10 +55,12 @@ public class DashboardServiceImpl implements DashboardService {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new IllegalArgumentException("Company not found with id: " + companyId));
 
+        BigDecimal cashBalance = calculateCurrentCashBalance(company);
+
         return DashboardResponse.builder()
-                .summary(buildSummary(company))
+                .summary(buildSummary(company, cashBalance))
                 .cashFlow(buildCashFlow(company.getId()))
-                .businessHealth(buildBusinessHealth(company))
+                .businessHealth(buildBusinessHealth(company, cashBalance, company.getId()))
                 .revenueProfit(buildRevenueChart(company.getId()))
                 .expenseBreakdown(buildExpenseBreakdown(company.getId()))
                 .receivableAging(buildReceivableAging(company.getId()))
@@ -68,31 +70,36 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
-     * 1. DASHBOARD SUMMARY - Tenant Scoped
+     * 1. DASHBOARD SUMMARY - Tenant Scoped with Dynamic MoM Growth
      */
-    private DashboardSummaryDTO buildSummary(Company company) {
+    private DashboardSummaryDTO buildSummary(Company company, BigDecimal cashBalance) {
         Long companyId = company.getId();
 
         BigDecimal totalRevenue = invoiceRepository.sumTotalAmountByCompanyId(companyId);
         BigDecimal totalReceivables = invoiceRepository.sumOutstandingAmountByCompanyId(companyId);
-        BigDecimal totalPayables = expenseRepository.sumAllAmountByCompanyId(companyId);
+        BigDecimal totalPayables = expenseRepository.sumAmountByCompanyIdAndStatus(companyId, ExpenseStatus.APPROVED);
 
         List<Invoice> receivableInvoices = invoiceRepository
                 .findByCompanyIdAndOutstandingAmountGreaterThan(companyId, BigDecimal.ZERO);
         long overdueInvoices = receivableInvoices.stream().filter(this::isOverdue).count();
 
-        BigDecimal cashBalance = calculateCurrentCashBalance(company);
-        Integer creditScore = company.getCreditScore() != null ? company.getCreditScore() : 0;
+        // Calculate dynamic Month-over-Month (MoM) growth rates
+        LocalDate today = LocalDate.now();
+        YearMonth currentMonth = YearMonth.from(today);
+        YearMonth priorMonth = currentMonth.minusMonths(1);
+
+        double revGrowth = calculateRevenueGrowth(companyId, currentMonth, priorMonth);
+        double expGrowth = calculateExpenseGrowth(companyId, currentMonth, priorMonth);
 
         return DashboardSummaryDTO.builder()
                 .totalRevenue(totalRevenue.doubleValue())
                 .cashBalance(cashBalance.doubleValue())
                 .totalReceivables(totalReceivables.doubleValue())
                 .totalPayables(totalPayables.doubleValue())
-                .creditScore(creditScore)
+                .creditScore(company.getCreditScore() != null ? company.getCreditScore() : 0)
                 .overdueInvoices((int) overdueInvoices)
-                .revenueGrowth(0.0)
-                .expenseGrowth(0.0)
+                .revenueGrowth(revGrowth)
+                .expenseGrowth(expGrowth)
                 .build();
     }
 
@@ -154,9 +161,9 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
-     * 3. BUSINESS HEALTH
+     * 3. BUSINESS HEALTH - Dynamic Cash Runway based on Trailing 90-Day Burn
      */
-    private BusinessHealthDTO buildBusinessHealth(Company company) {
+    private BusinessHealthDTO buildBusinessHealth(Company company, BigDecimal currentCash, Long companyId) {
         int creditScore = company.getCreditScore() != null ? company.getCreditScore() : 0;
         String status;
 
@@ -170,33 +177,76 @@ public class DashboardServiceImpl implements DashboardService {
             status = "Needs Attention";
         }
 
+        // Calculate trailing 90-day average monthly burn rate
+        LocalDate ninetyDaysAgo = LocalDate.now().minusDays(90);
+        List<Expense> trailingExpenses = expenseRepository.findByCompanyIdAndStatusAndExpenseDateGreaterThanEqual(
+                companyId, ExpenseStatus.APPROVED, ninetyDaysAgo);
+
+        BigDecimal totalTrailingOutflows = trailingExpenses.stream()
+                .map(Expense::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal averageMonthlyBurn = totalTrailingOutflows.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
+
+        String dynamicRunway;
+        if (currentCash.compareTo(BigDecimal.ZERO) <= 0) {
+            dynamicRunway = "0 Months (Negative Cash)";
+        } else if (averageMonthlyBurn.compareTo(BigDecimal.ZERO) == 0) {
+            dynamicRunway = "12+ Months (Zero Burn)";
+        } else {
+            BigDecimal months = currentCash.divide(averageMonthlyBurn, 1, RoundingMode.HALF_UP);
+            dynamicRunway = months.doubleValue() + " Months";
+        }
+
         return BusinessHealthDTO.builder()
                 .score(creditScore)
                 .status(status)
-                .cashRunway("6 Months")
+                .cashRunway(dynamicRunway)
                 .creditScore(creditScore)
                 .build();
     }
 
     /**
-     * 4. REVENUE / PROFIT - Tenant Scoped
+     * 4. REVENUE / PROFIT - Dynamic Gross Profit & Profit Margins
      */
     private List<RevenueProfitDTO> buildRevenueChart(Long companyId) {
-        Map<Month, BigDecimal> revenueByMonth = invoiceRepository.findByCompanyId(companyId).stream()
-                .filter(i -> i.getInvoiceDate() != null && i.getTotalAmount() != null)
-                .collect(Collectors.groupingBy(
-                        i -> i.getInvoiceDate().getMonth(),
-                        Collectors.mapping(Invoice::getTotalAmount, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
-                ));
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.withDayOfMonth(1).minusMonths(5);
+        YearMonth startMonth = YearMonth.from(startDate);
 
-        return revenueByMonth.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(entry -> RevenueProfitDTO.builder()
-                        .month(entry.getKey().name())
-                        .revenue(entry.getValue().doubleValue())
-                        .profit(0.0)
-                        .profitMargin(0.0)
-                        .build())
+        List<Invoice> invoices = invoiceRepository.findByCompanyId(companyId);
+        List<Expense> expenses = expenseRepository.findByCompanyIdAndStatus(companyId, ExpenseStatus.APPROVED);
+
+        return IntStream.range(0, 6)
+                .mapToObj(startMonth::plusMonths)
+                .map(month -> {
+                    BigDecimal monthlyRev = invoices.stream()
+                            .filter(i -> i.getInvoiceDate() != null && YearMonth.from(i.getInvoiceDate()).equals(month))
+                            .map(Invoice::getTotalAmount)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    BigDecimal monthlyExp = expenses.stream()
+                            .filter(e -> e.getExpenseDate() != null && YearMonth.from(e.getExpenseDate()).equals(month))
+                            .map(Expense::getAmount)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                    BigDecimal grossProfit = monthlyRev.subtract(monthlyExp);
+                    double profitMargin = monthlyRev.compareTo(BigDecimal.ZERO) > 0
+                            ? grossProfit.multiply(BigDecimal.valueOf(100))
+                            .divide(monthlyRev, 2, RoundingMode.HALF_UP)
+                            .doubleValue()
+                            : 0.0;
+
+                    return RevenueProfitDTO.builder()
+                            .month(month.getMonth().name().substring(0, 3))
+                            .revenue(monthlyRev.doubleValue())
+                            .profit(grossProfit.doubleValue())
+                            .profitMargin(profitMargin)
+                            .build();
+                })
                 .toList();
     }
 
@@ -313,8 +363,50 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
-     * Current Cash Balance Calculation - Tenant Scoped
+     * Calculation Helpers
      */
+    private double calculateRevenueGrowth(Long companyId, YearMonth currentMonth, YearMonth priorMonth) {
+        BigDecimal curRev = getMonthlyInvoiceSum(companyId, currentMonth);
+        BigDecimal priorRev = getMonthlyInvoiceSum(companyId, priorMonth);
+
+        if (priorRev.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        return curRev.subtract(priorRev)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(priorRev, 2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    private double calculateExpenseGrowth(Long companyId, YearMonth currentMonth, YearMonth priorMonth) {
+        BigDecimal curExp = getMonthlyExpenseSum(companyId, currentMonth);
+        BigDecimal priorExp = getMonthlyExpenseSum(companyId, priorMonth);
+
+        if (priorExp.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        return curExp.subtract(priorExp)
+                .multiply(BigDecimal.valueOf(100))
+                .divide(priorExp, 2, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    private BigDecimal getMonthlyInvoiceSum(Long companyId, YearMonth month) {
+        return invoiceRepository.findByCompanyId(companyId).stream()
+                .filter(i -> i.getInvoiceDate() != null && YearMonth.from(i.getInvoiceDate()).equals(month))
+                .map(Invoice::getTotalAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal getMonthlyExpenseSum(Long companyId, YearMonth month) {
+        return expenseRepository.findByCompanyIdAndStatus(companyId, ExpenseStatus.APPROVED).stream()
+                .filter(e -> e.getExpenseDate() != null && YearMonth.from(e.getExpenseDate()).equals(month))
+                .map(Expense::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private BigDecimal calculateCurrentCashBalance(Company company) {
         BigDecimal openingCash = company.getOpeningCashBalance() != null
                 ? company.getOpeningCashBalance()
