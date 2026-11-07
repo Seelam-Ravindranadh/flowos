@@ -115,3 +115,9 @@ CREATE TABLE IF NOT EXISTS lender_bids (
 CREATE INDEX IF NOT EXISTS idx_lender_bids_request ON lender_bids(funding_request_id);
 
 -- 3. Update Invoice Status Enum check if necessary or verify status values
+
+-- Allow vendor_id to be NULL for sales / customer invoices
+ALTER TABLE invoices ALTER COLUMN vendor_id DROP NOT NULL;
+
+-- Also verify customer_id can be NULL (needed when creating vendor bills / payables)
+ALTER TABLE invoices ALTER COLUMN customer_id DROP NOT NULL;

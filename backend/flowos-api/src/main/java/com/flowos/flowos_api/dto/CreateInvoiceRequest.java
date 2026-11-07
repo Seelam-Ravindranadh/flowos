@@ -21,7 +21,7 @@ public class CreateInvoiceRequest {
 
     @Schema(
             description = "Invoice Number",
-            example = "INV-1001"
+            example = "INV-2026-001"
     )
     @NotBlank(message = "Invoice number is required")
     private String invoiceNumber;
@@ -33,29 +33,26 @@ public class CreateInvoiceRequest {
     private Long companyId;
 
     @Schema(
-            description = "Customer ID",
+            description = "Customer ID (for Receivables / Sales Invoices)",
             example = "1"
     )
-    @NotNull(message = "Customer is required")
     private Long customerId;
 
     @Schema(
-            description = "Vendor ID",
+            description = "Vendor ID (for Payables / Supplier Invoices) - Optional",
             example = "1"
     )
-    @NotNull(message = "Vendor is required")
     private Long vendorId;
 
     @Schema(
-            description = "Invoice Date",
-            example = "2026-10-06"
+            description = "Invoice Issue Date - Defaults to current date if omitted",
+            example = "2026-11-07"
     )
-    @NotNull(message = "Invoice Date is required")
     private LocalDate invoiceDate;
 
     @Schema(
-            description = "Due Date",
-            example = "2026-11-15"
+            description = "Invoice Due Date",
+            example = "2026-12-07"
     )
     @NotNull(message = "Due Date is required")
     private LocalDate dueDate;
@@ -69,21 +66,20 @@ public class CreateInvoiceRequest {
     private BigDecimal amount;
 
     @Schema(
-            description = "Tax Amount",
+            description = "Tax Amount - Defaults to 0 if omitted",
             example = "4500.00"
     )
-    @NotNull(message = "Tax is required")
     private BigDecimal tax;
 
     @Schema(
-            description = "Total Amount (Base Amount + Tax) - Optional, calculated automatically if omitted",
+            description = "Total Amount (Base Amount + Tax) - Calculated automatically if omitted",
             example = "29500.00"
     )
     private BigDecimal totalAmount;
 
     @Schema(
             description = "Additional Notes",
-            example = "Payment due in 30 days"
+            example = "Net 30 terms. Remit via NEFT/RTGS."
     )
     private String notes;
 }

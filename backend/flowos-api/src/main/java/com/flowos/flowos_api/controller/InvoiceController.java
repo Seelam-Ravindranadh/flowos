@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,23 +18,20 @@ import java.util.List;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/invoices")
-@CrossOrigin(origins = "http://localhost:5173")
-@Tag(name = "Invoice APIs", description = "Invoice Management APIs")
+@Tag(name = "Invoice APIs", description = "Invoice Management & Accounts Receivable APIs")
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+
     /**
-     * Create Invoice
+     * Create Invoice (Returns HTTP 201 Created)
      */
     @Operation(summary = "Create Invoice")
     @PostMapping
-    public InvoiceResponse createInvoice(
-            @Valid
-            @RequestBody
-            CreateInvoiceRequest request
+    public ResponseEntity<InvoiceResponse> createInvoice(
+            @Valid @RequestBody CreateInvoiceRequest request
     ) {
-
-        return invoiceService.createInvoice(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(invoiceService.createInvoice(request));
     }
 
     /**
@@ -41,33 +39,32 @@ public class InvoiceController {
      */
     @Operation(summary = "Get Invoice By Id")
     @GetMapping("/{id}")
-    public InvoiceResponse getInvoice(
+    public ResponseEntity<InvoiceResponse> getInvoice(
             @PathVariable Long id
     ) {
-
-        return invoiceService.getInvoice(id);
+        return ResponseEntity.ok(invoiceService.getInvoice(id));
     }
 
     /**
-     * Get All Invoices
+     * Get All Invoices (Optionally filtered by company tenant)
      */
     @Operation(summary = "Get All Invoices")
     @GetMapping
-    public List<InvoiceResponse> getAllInvoices() {
-
-        return invoiceService.getAllInvoices();
+    public ResponseEntity<List<InvoiceResponse>> getAllInvoices(
+            @RequestParam(required = false) Long companyId
+    ) {
+        return ResponseEntity.ok(invoiceService.getAllInvoices(companyId));
     }
 
     /**
-     * Search Invoice
+     * Search Invoice By Number
      */
     @Operation(summary = "Search Invoice By Invoice Number")
     @GetMapping("/search")
-    public List<InvoiceResponse> searchInvoice(
+    public ResponseEntity<List<InvoiceResponse>> searchInvoice(
             @RequestParam String invoiceNumber
     ) {
-
-        return invoiceService.searchInvoice(invoiceNumber);
+        return ResponseEntity.ok(invoiceService.searchInvoice(invoiceNumber));
     }
 
     /**
@@ -75,14 +72,11 @@ public class InvoiceController {
      */
     @Operation(summary = "Update Invoice")
     @PutMapping("/{id}")
-    public InvoiceResponse updateInvoice(
+    public ResponseEntity<InvoiceResponse> updateInvoice(
             @PathVariable Long id,
-            @Valid
-            @RequestBody
-            UpdateInvoiceRequest request
+            @Valid @RequestBody UpdateInvoiceRequest request
     ) {
-
-        return invoiceService.updateInvoice(id, request);
+        return ResponseEntity.ok(invoiceService.updateInvoice(id, request));
     }
 
     /**
@@ -91,11 +85,9 @@ public class InvoiceController {
     @Operation(summary = "Delete Invoice")
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteInvoice(
-            @PathVariable Long id) {
-
-        invoiceService.deleteInvoice(id);
-
-        return ResponseEntity.ok("Invoice deleted successfully");
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(invoiceService.deleteInvoice(id));
     }
 
     /**
@@ -103,11 +95,10 @@ public class InvoiceController {
      */
     @Operation(summary = "Get Invoices By Status")
     @GetMapping("/status/{status}")
-    public List<InvoiceResponse> getInvoicesByStatus(
+    public ResponseEntity<List<InvoiceResponse>> getInvoicesByStatus(
             @PathVariable InvoiceStatus status
     ) {
-
-        return invoiceService.getInvoicesByStatus(status);
+        return ResponseEntity.ok(invoiceService.getInvoicesByStatus(status));
     }
 
     /**
@@ -115,11 +106,10 @@ public class InvoiceController {
      */
     @Operation(summary = "Get Invoices By Customer")
     @GetMapping("/customer/{customerId}")
-    public List<InvoiceResponse> getInvoicesByCustomer(
+    public ResponseEntity<List<InvoiceResponse>> getInvoicesByCustomer(
             @PathVariable Long customerId
     ) {
-
-        return invoiceService.getInvoicesByCustomer(customerId);
+        return ResponseEntity.ok(invoiceService.getInvoicesByCustomer(customerId));
     }
 
     /**
@@ -127,11 +117,9 @@ public class InvoiceController {
      */
     @Operation(summary = "Get Invoices By Vendor")
     @GetMapping("/vendor/{vendorId}")
-    public List<InvoiceResponse> getInvoicesByVendor(
+    public ResponseEntity<List<InvoiceResponse>> getInvoicesByVendor(
             @PathVariable Long vendorId
     ) {
-
-        return invoiceService.getInvoicesByVendor(vendorId);
+        return ResponseEntity.ok(invoiceService.getInvoicesByVendor(vendorId));
     }
-
 }

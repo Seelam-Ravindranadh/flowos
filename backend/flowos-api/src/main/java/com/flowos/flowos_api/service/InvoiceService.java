@@ -35,55 +35,62 @@ public class InvoiceService {
     private final CompanyRepository companyRepository;
 
     /**
-     * Create Invoice - Enforces P0.7 Tenant Linking
+     * Create Invoice - Supports customer sales invoices and vendor bills
      */
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest request) {
-
         log.info("Creating Invoice : {}", request.getInvoiceNumber());
 
         if (invoiceRepository.existsByInvoiceNumber(request.getInvoiceNumber())) {
             throw new BadRequestException("Invoice Number already exists: " + request.getInvoiceNumber());
         }
 
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Customer not found with id : " + request.getCustomerId()));
+        if (request.getCustomerId() == null && request.getVendorId() == null) {
+            throw new BadRequestException("Either Customer ID or Vendor ID must be provided.");
+        }
 
-        Vendor vendor = vendorRepository.findById(request.getVendorId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Vendor not found with id : " + request.getVendorId()));
+        // 1. Resolve Customer (if provided)
+        Customer customer = null;
+        if (request.getCustomerId() != null) {
+            customer = customerRepository.findById(request.getCustomerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id : " + request.getCustomerId()));
+        }
 
-        // Resolve Company Tenant (explicit ID or fall back to first registered company)
+        // 2. Resolve Vendor (if provided, optional for AR invoices)
+        Vendor vendor = null;
+        if (request.getVendorId() != null) {
+            vendor = vendorRepository.findById(request.getVendorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with id : " + request.getVendorId()));
+        }
+
+        // 3. Resolve Company Tenant (explicit ID or fall back to first registered company)
         Company company;
         if (request.getCompanyId() != null) {
             company = companyRepository.findById(request.getCompanyId())
-                    .orElseThrow(() ->
-                            new ResourceNotFoundException("Company not found with id : " + request.getCompanyId()));
+                    .orElseThrow(() -> new ResourceNotFoundException("Company not found with id : " + request.getCompanyId()));
         } else {
             company = companyRepository.findAll().stream().findFirst()
-                    .orElseThrow(() ->
-                            new BadRequestException("No registered company tenant found. Please seed the companies table."));
+                    .orElseThrow(() -> new BadRequestException("No registered company tenant found. Please seed the companies table."));
         }
 
         BigDecimal amount = request.getAmount() != null ? request.getAmount() : BigDecimal.ZERO;
         BigDecimal tax = request.getTax() != null ? request.getTax() : BigDecimal.ZERO;
 
-        if (amount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BadRequestException("Invoice amount must be greater than or equal to zero.");
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Invoice base amount must be greater than zero.");
         }
 
         if (tax.compareTo(BigDecimal.ZERO) < 0) {
-            throw new BadRequestException("Tax must be greater than or equal to zero.");
+            throw new BadRequestException("Tax amount cannot be negative.");
         }
 
-        BigDecimal totalAmount = request.getTotalAmount() != null && request.getTotalAmount().compareTo(BigDecimal.ZERO) > 0
+        BigDecimal totalAmount = (request.getTotalAmount() != null && request.getTotalAmount().compareTo(BigDecimal.ZERO) > 0)
                 ? request.getTotalAmount()
                 : amount.add(tax);
 
         Invoice invoice = new Invoice();
         invoice.setInvoiceNumber(request.getInvoiceNumber());
-        invoice.setCompany(company); // Fixes the 500 PropertyValueException
+        invoice.setCompany(company);
         invoice.setCustomer(customer);
         invoice.setVendor(vendor);
         invoice.setInvoiceDate(request.getInvoiceDate() != null ? request.getInvoiceDate() : LocalDate.now());
@@ -93,7 +100,7 @@ public class InvoiceService {
         invoice.setTotalAmount(totalAmount);
         invoice.setPaidAmount(BigDecimal.ZERO);
         invoice.setOutstandingAmount(totalAmount);
-        invoice.setStatus(InvoiceStatus.DRAFT);
+        invoice.setStatus(InvoiceStatus.SENT);
         invoice.setNotes(request.getNotes());
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
@@ -105,10 +112,9 @@ public class InvoiceService {
     }
 
     /**
-     * Entity -> DTO
+     * Map Entity -> Response DTO
      */
     private InvoiceResponse mapToResponse(Invoice invoice) {
-
         InvoiceResponse response = new InvoiceResponse();
         response.setId(invoice.getId());
         response.setInvoiceNumber(invoice.getInvoiceNumber());
@@ -145,10 +151,25 @@ public class InvoiceService {
         return mapToResponse(invoice);
     }
 
+    /**
+     * Backward-compatible no-arg method for unit tests
+     */
     @Transactional(readOnly = true)
     public List<InvoiceResponse> getAllInvoices() {
-        log.info("Fetching all invoices");
-        return invoiceRepository.findAll().stream()
+        return getAllInvoices(null);
+    }
+
+    /**
+     * Tenant-scoped invoice retrieval
+     */
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> getAllInvoices(Long companyId) {
+        log.info("Fetching all invoices (companyId: {})", companyId);
+        List<Invoice> invoices = (companyId != null)
+                ? invoiceRepository.findByCompanyId(companyId)
+                : invoiceRepository.findAll();
+
+        return invoices.stream()
                 .map(this::mapToResponse)
                 .toList();
     }
@@ -168,14 +189,18 @@ public class InvoiceService {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with id : " + id));
 
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id : " + request.getCustomerId()));
+        if (request.getCustomerId() != null) {
+            Customer customer = customerRepository.findById(request.getCustomerId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id : " + request.getCustomerId()));
+            invoice.setCustomer(customer);
+        }
 
-        Vendor vendor = vendorRepository.findById(request.getVendorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with id : " + request.getVendorId()));
+        if (request.getVendorId() != null) {
+            Vendor vendor = vendorRepository.findById(request.getVendorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Vendor not found with id : " + request.getVendorId()));
+            invoice.setVendor(vendor);
+        }
 
-        invoice.setCustomer(customer);
-        invoice.setVendor(vendor);
         invoice.setInvoiceNumber(request.getInvoiceNumber());
         invoice.setInvoiceDate(request.getInvoiceDate());
         invoice.setDueDate(request.getDueDate());

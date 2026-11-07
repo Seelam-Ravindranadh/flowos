@@ -25,12 +25,14 @@ public class Invoice {
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
+    // Ensure customer is also nullable for vendor purchase invoices
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "customer_id", nullable = false)
+    @JoinColumn(name = "customer_id", nullable = true)
     private Customer customer;
 
+    // Ensure vendor is optional and nullable
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vendor_id", nullable = false)
+    @JoinColumn(name = "vendor_id", nullable = true)
     private Vendor vendor;
 
     private LocalDate invoiceDate;

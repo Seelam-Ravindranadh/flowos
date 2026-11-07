@@ -39,4 +39,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     BigDecimal sumOutstandingAmountByCompanyId(@Param("companyId") Long companyId);
 
     List<Invoice> findTop5ByCompanyIdOrderByCreatedAtDesc(Long companyId);
+
+    List<Invoice> findByCompanyIdAndStatus(Long companyId, InvoiceStatus status);
+
+    List<Invoice> findByCompanyIdAndCustomerId(Long companyId, Long customerId);
 }
