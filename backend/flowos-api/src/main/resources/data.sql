@@ -75,3 +75,43 @@ CREATE INDEX IF NOT EXISTS idx_payments_company_id ON payments(company_id);
 UPDATE expenses SET company_id = (SELECT id FROM companies ORDER BY id ASC LIMIT 1) WHERE company_id IS NULL;
 ALTER TABLE expenses ALTER COLUMN company_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_expenses_company_id ON expenses(company_id);
+
+-- 1. Create Funding Requests Table
+CREATE TABLE IF NOT EXISTS funding_requests (
+    id BIGSERIAL PRIMARY KEY,
+    request_number VARCHAR(100) UNIQUE NOT NULL,
+    company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    invoice_id BIGINT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    requested_amount NUMERIC(18, 2) NOT NULL,
+    approved_amount NUMERIC(18, 2),
+    interest_rate DOUBLE PRECISION,
+    lender_name VARCHAR(255),
+    request_date DATE NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_funding_requests_company ON funding_requests(company_id);
+CREATE INDEX IF NOT EXISTS idx_funding_requests_invoice ON funding_requests(invoice_id);
+
+-- 2. Create Lender Bids Table
+CREATE TABLE IF NOT EXISTS lender_bids (
+    id BIGSERIAL PRIMARY KEY,
+    bid_number VARCHAR(100) UNIQUE NOT NULL,
+    funding_request_id BIGINT NOT NULL REFERENCES funding_requests(id) ON DELETE CASCADE,
+    lender_name VARCHAR(255) NOT NULL,
+    advance_amount NUMERIC(18, 2) NOT NULL,
+    discount_rate DOUBLE PRECISION NOT NULL,
+    platform_fee NUMERIC(18, 2) NOT NULL,
+    net_disbursement NUMERIC(18, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    bid_date DATE NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lender_bids_request ON lender_bids(funding_request_id);
+
+-- 3. Update Invoice Status Enum check if necessary or verify status values
